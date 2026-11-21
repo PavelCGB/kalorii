@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f7ef">
+  <title>Калории</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <!-- shortcut: шрифт грузится из интернета; без сети будет системный — если мешает, положить woff2 в папку -->
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <!-- тема ставится до отрисовки, чтобы не было вспышки светлого экрана -->
+  <script>try { if (JSON.parse(localStorage.getItem('kc_settings'))?.theme === 'dark') document.documentElement.dataset.theme = 'dark'; } catch {}</script>
+</head>
+<body>
+  <header class="top">
+    <h1 class="logo" aria-label="Калории">Кал<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 8c-2-1.6-5.5-1.8-7.6.6C2 11.3 2.6 17 5.2 21c1.5 2.4 3.4 4 5 3.5.8-.3 1.2-.5 1.8-.5s1 .2 1.8.5c1.6.5 3.5-1.1 5-3.5 2.6-4 3.2-9.7.8-12.4C17.5 6.2 14 6.4 12 8z" fill="#ff5d5d"/><path d="M12 8c0-2.5.8-4.6 2.4-6" stroke="#6b4a2b" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M13.5 5.2c1.2-2.4 4-3.4 6.4-2.6-.9 2.4-3.6 3.6-6.4 2.6z" fill="#3fbf6a"/><ellipse cx="7.5" cy="12.5" rx="1.6" ry="2.6" fill="#fff" opacity=".55" transform="rotate(20 7.5 12.5)"/></svg>рии</h1>
+    <div class="top-actions">
+      <button id="themeBtn" class="upd theme" aria-label="Переключить тему" title="Светлая / тёмная тема">
+        <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="#3fbf6a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="#ffb020" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/></svg>
+      </button>
+      <button id="updBtn" class="upd" aria-label="Обновление с GitHub: проверить новую версию" title="Обновление с GitHub">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#3fbf6a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>
+        <i id="updDot" hidden></i>
+      </button>
+    </div>
+  </header>
+
+  <button id="updateBanner" class="upd-banner" aria-live="polite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>
+    <span><b id="ubTitle">Доступно обновление</b><small>Нажми, чтобы скачать и установить</small></span>
+  </button>
+
+  <main>
+    <div class="days">
+      <button id="prevDay" aria-label="Предыдущий день">‹</button>
+      <button id="dateLabel" class="date-label" title="Вернуться к сегодняшнему дню"></button>
+      <button id="nextDay" aria-label="Следующий день">›</button>
+    </div>
+
+    <section class="card hero">
+      <div class="ring">
+        <svg viewBox="0 0 150 150" aria-hidden="true">
+          <circle cx="75" cy="75" r="62" fill="none" stroke="#ffffff40" stroke-width="14"/>
+          <circle id="ringArc" cx="75" cy="75" r="62" fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round" stroke-dasharray="389.6" stroke-dashoffset="389.6" transform="rotate(-90 75 75)"/>
+        </svg>
+        <div><span><b id="kcalLeft">0</b><small id="kcalLeftLabel">осталось ккал</small></span></div>
+      </div>
+      <div class="stat">
+        <div>Съедено<strong id="kcalEaten">0</strong></div>
+        <div>Цель<strong id="kcalGoal">0</strong></div>
+      </div>
+    </section>
+
+    <section class="card"><div class="macros" id="macros"></div></section>
+
+    <section class="card">
+      <h3>💧 Вода <small id="waterLabel"></small></h3>
+      <div class="water" id="water"></div>
+    </section>
+
+    <section class="card">
+      <h3>Приёмы пищи <button id="copyYesterday" class="link-sm">копировать вчера ⟲</button></h3>
+      <div id="meals"></div>
+    </section>
+
+    <section class="card">
+      <h3>Неделя <small id="weekWeight"></small></h3>
+      <div class="week" id="week"></div>
+    </section>
+
+    <p class="version muted small center" id="versionLine"></p>
+  </main>
+
+  <nav class="bottom-nav">
+    <button id="navDiary" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 11l8-7 8 7v9H4z"/></svg>Дневник</button>
+    <button id="navSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Поиск</button>
+    <button id="navScan" class="scan" aria-label="Сканировать штрихкод"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 12h8"/></svg></button>
+    <button id="navStats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Статистика</button>
+    <button id="navProfile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg>Профиль</button>
+  </nav>
+
+  <!-- Статистика -->
+  <div id="stats" class="overlay hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>Статистика</h2>
+        <button class="icon-btn" data-close aria-label="Закрыть">✕</button>
+      </div>
+      <nav class="tabs" id="statTabs">
+        <button data-range="7" class="active">Неделя</button>
+        <button data-range="30">Месяц</button>
+      </nav>
+      <h3>Калории <small id="statAvg" class="muted"></small></h3>
+      <div id="statKcal" class="week tall"></div>
+      <h3>Вес <small id="statWeightInfo" class="muted"></small></h3>
+      <div class="row">
+        <input id="weightInput" type="text" inputmode="decimal" autocomplete="off" placeholder="Вес сегодня, кг">
+        <button id="weightSave" class="btn">Сохранить</button>
+      </div>
+      <div id="statWeight"></div>
+    </div>
+  </div>
+
+  <!-- Добавление еды -->
+  <div id="addSheet" class="overlay hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2 id="addTitle">Добавить</h2>
+        <button class="icon-btn" data-close aria-label="Закрыть">✕</button>
+      </div>
+      <nav class="tabs">
+        <button data-tab="search" class="active">🔍 Поиск</button>
+        <button data-tab="barcode">▥ Штрихкод</button>
+        <button data-tab="photo">📷 Фото</button>
+        <button data-tab="manual">✍️ Вручную</button>
+      </nav>
+
+      <div class="tab" id="tab-search">
+        <input id="searchInput" type="search" autocomplete="off" placeholder="Например: гречка, банан, творог 5%">
+        <div id="searchResults"></div>
+      </div>
+
+      <div class="tab hidden" id="tab-barcode">
+        <div id="reader"></div>
+        <p id="scanStatus" class="muted center"></p>
+        <div class="row">
+          <input id="barcodeInput" inputmode="numeric" placeholder="Или введи цифры штрихкода">
+          <button id="barcodeGo" class="btn">Найти</button>
+        </div>
+        <button id="rescan" class="btn secondary wide">🔄 Сканировать снова</button>
+        <div id="scanFileTmp" hidden></div>
+        <label class="btn secondary wide">📷 Не ловит? Сфоткать штрихкод
+          <input type="file" accept="image/*" capture="environment" id="barcodePhoto" hidden>
+        </label>
+      </div>
+
+      <div class="tab hidden" id="tab-photo">
+        <label class="btn wide big">📷 Сфотографировать еду
+          <input type="file" accept="image/*" capture="environment" id="photoCam" hidden>
+        </label>
+        <label class="btn secondary wide">🖼 Выбрать из галереи
+          <input type="file" accept="image/*" id="photoGallery" hidden>
+        </label>
+        <img id="photoPreview" class="photo-preview hidden" alt="">
+        <div id="photoResults"></div>
+      </div>
+
+      <div class="tab hidden" id="tab-manual">
+        <p id="mHint" class="hint hidden"></p>
+        <label class="btn secondary wide">📷 Заполнить по фото этикетки (ИИ)
+          <input type="file" accept="image/*" capture="environment" id="labelPhoto" hidden>
+        </label>
+        <form id="manualForm" class="form">
+          <label class="field">Название
+            <input id="mName" required placeholder="Например: Сырок глазированный">
+          </label>
+          <p class="muted small">Значения на 100 г (смотри на этикетке):</p>
+          <div class="grid4">
+            <label>Ккал<input id="mK" type="number" step="any" inputmode="decimal" required></label>
+            <label>Белки<input id="mP" type="number" step="any" inputmode="decimal" value="0"></label>
+            <label>Жиры<input id="mF" type="number" step="any" inputmode="decimal" value="0"></label>
+            <label>Углев.<input id="mC" type="number" step="any" inputmode="decimal" value="0"></label>
+          </div>
+          <label class="field">Штрихкод (необязательно)
+            <input id="mCode" inputmode="numeric">
+          </label>
+          <label class="check"><input type="checkbox" id="mSave" checked> Сохранить в «Мои продукты»</label>
+          <button class="btn wide" type="submit">Далее →</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Порция -->
+  <div id="portion" class="overlay hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2 id="pName"></h2>
+        <button class="icon-btn" data-close aria-label="Закрыть">✕</button>
+      </div>
+      <p id="pPer100" class="muted"></p>
+      <details id="pEdit">
+        <summary>Изменить КБЖУ на 100 г</summary>
+        <div class="grid4">
+          <label>Ккал<input id="pK" type="number" step="any" inputmode="decimal"></label>
+          <label>Белки<input id="pP" type="number" step="any" inputmode="decimal"></label>
+          <label>Жиры<input id="pF" type="number" step="any" inputmode="decimal"></label>
+          <label>Углев.<input id="pC" type="number" step="any" inputmode="decimal"></label>
+        </div>
+      </details>
+      <label class="field">Сколько грамм
+        <input id="pGrams" type="number" step="any" inputmode="decimal">
+      </label>
+      <div class="chips" id="pChips"></div>
+      <label class="field">Приём пищи
+        <select id="pMeal"></select>
+      </label>
+      <div class="result" id="pResult"></div>
+      <p id="pNote" class="muted small"></p>
+      <div class="row">
+        <button id="pDelete" class="btn danger hidden">Удалить</button>
+        <button id="pSave" class="btn grow">Добавить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- План питания -->
+  <div id="plan" class="overlay hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>План питания на неделю</h2>
+        <button class="icon-btn" data-close aria-label="Закрыть">✕</button>
+      </div>
+      <details id="plFormBox" open>
+        <summary>Параметры плана</summary>
+        <label class="field">Бюджет на неделю, ₽
+          <input id="plBudget" type="number" inputmode="numeric" placeholder="3000">
+        </label>
+        <h3>Магазины</h3>
+        <div class="checks" id="plStores"></div>
+        <h3>Чем готовлю</h3>
+        <div class="checks" id="plTech"></div>
+        <label class="field">Разнообразие
+          <select id="plVariety">
+            <option value="mix">🎨 Разнообразно — каждый день другие блюда</option>
+            <option value="eco">💰 Экономно — готовлю 2–3 раза в неделю, блюда повторяются</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="plAvoidPrev" checked> Не повторять блюда из прошлого плана</label>
+        <label class="field">Что люблю, чего не ем, пожелания
+          <textarea id="plPrefs" rows="3" placeholder="Например: люблю курицу и гречку, не ем рыбу, обед беру с собой"></textarea>
+        </label>
+        <label class="field">🍫 Вкусняшки — что обязательно оставить в рационе
+          <textarea id="plTreats" rows="2" placeholder="Например: энергетик 0,45 л каждый день, шоколадка 90 г 2 раза в неделю"></textarea>
+        </label>
+        <div class="chips" id="plTreatChips"></div>
+        <p class="muted small">Рацион подбирается под твои нормы КБЖУ из ⚙️ — вместе со вкусняшками. Цены — примерная оценка ИИ.</p>
+        <button id="plMake" class="btn wide big">📅 Составить меню</button>
+        <button id="plCopy" class="btn secondary wide">📋 Скопировать запрос для Claude</button>
+      </details>
+      <details id="plImport">
+        <summary>📥 Загрузить готовый план (ответ Claude)</summary>
+        <p class="muted small">Вставь ответ Claude целиком или выбери файл plan.json.</p>
+        <textarea id="plImportText" rows="4" placeholder='{"menu": ...}'></textarea>
+        <div class="row">
+          <label class="btn secondary grow">📄 Выбрать файл<input type="file" accept=".json,application/json,text/plain" id="plImportFile" hidden></label>
+          <button id="plImportGo" class="btn grow">Загрузить</button>
+        </div>
+      </details>
+      <p id="plStatus" class="hint hidden"></p>
+      <div id="planView"></div>
+    </div>
+  </div>
+
+  <!-- Настройки -->
+  <div id="settings" class="overlay hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>Профиль</h2>
+        <button class="icon-btn" data-close aria-label="Закрыть">✕</button>
+      </div>
+
+      <button id="openPlan" class="btn wide big">📅 План питания на неделю</button>
+
+      <h3>Тема</h3>
+      <nav class="tabs" id="themeTabs">
+        <button data-theme-set="light">☀️ Бело-зелёная</button>
+        <button data-theme-set="dark">🌙 Чёрно-зелёная</button>
+      </nav>
+
+      <h3>Дневная норма</h3>
+      <div class="grid4">
+        <label>Ккал<input id="sK" type="number" inputmode="numeric"></label>
+        <label>Белки, г<input id="sP" type="number" inputmode="numeric"></label>
+        <label>Жиры, г<input id="sF" type="number" inputmode="numeric"></label>
+        <label>Углев., г<input id="sC" type="number" inputmode="numeric"></label>
+      </div>
+      <p id="goalCheck" class="muted small"></p>
+
+      <h3>Распознавание фото (ИИ)</h3>
+      <label class="field">Модель
+        <!-- shortcut: бесплатные модели OpenRouter периодически меняются; если модель пропала — замени id по openrouter.ai/models?q=free -->
+        <select id="sModel">
+          <option value="google/gemma-4-31b-it:free">Бесплатно: Gemma 4 31B (ключ с openrouter.ai)</option>
+          <option value="nvidia/nemotron-3.5-super-vl:free">Бесплатно: Nemotron 3.5 Super VL (ключ с openrouter.ai)</option>
+          <option value="kimi-k3.1-pro">Kimi K3.1 Pro (ключ с platform.kimi.ai)</option>
+          <option value="claude-opus-5-5">Claude Opus 5.5 — точнее (≈1–1,5 ₽ за фото)</option>
+          <option value="claude-haiku-5-5">Claude Haiku 5.5 — в десятки раз дешевле, чуть менее точно</option>
+        </select>
+      </label>
+      <label class="field">Ключ API выбранной модели
+        <input id="sKey" type="password" autocomplete="off" placeholder="sk-...">
+      </label>
+      <p class="muted small">Ключ хранится только в этом телефоне. OpenRouter (бесплатно, без карты): openrouter.ai → Keys. Kimi: platform.kimi.ai → API Keys. Claude: console.anthropic.com → API Keys. Баланс нужно пополнить.</p>
+
+      <button id="saveSettings" class="btn wide">Сохранить</button>
+
+      <h3>Мои продукты</h3>
+      <ul id="myFoodsList" class="my-list"></ul>
+
+      <h3>Данные</h3>
+      <div class="row">
+        <button id="exportBtn" class="btn secondary grow">⬇️ Экспорт</button>
+        <label class="btn secondary grow">⬆️ Импорт<input type="file" accept="application/json,.json" id="importFile" hidden></label>
+      </div>
+      <p class="muted small">Резервная копия: дневник, продукты, вода, вес, план и нормы в один файл (без ключа API). Делай перед удалением приложения или сменой телефона.</p>
+      <p class="muted small center" id="versionLine2"></p>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Что нового в обновлении -->
+  <div id="whatsNew" class="overlay hidden">
+    <div class="sheet wn">
+      <div class="sheet-head">
+        <h2 id="wnTitle">Что нового</h2>
+        <button class="icon-btn" data-close aria-label="Закрыть">✕</button>
+      </div>
+      <div id="wnNotes" class="wn-notes"></div>
+      <div class="row">
+        <button id="wnLater" class="btn secondary grow">Позже</button>
+        <button id="wnGo" class="btn grow">⬇️ Скачать и установить</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- экран запуска: зелёный градиент и иконка по центру (вместо логотипа Capacitor) -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_bg_gradient" />
+    <item android:width="216dp" android:height="216dp" android:gravity="center" android:drawable="@mipmap/ic_launcher_foreground" />
+</layer-list>
