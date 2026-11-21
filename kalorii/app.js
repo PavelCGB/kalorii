@@ -18,7 +18,7 @@ const sum = (entries) => entries.reduce((a, e) => {
   a.kcal += t.kcal; a.p += t.p; a.f += t.f; a.c += t.c; return a;
 }, { kcal: 0, p: 0, f: 0, c: 0 });
 
-const APP_VERSION = '2.4';
+const APP_VERSION = '2.5';
 const REPO = 'PavelCGB/kalorii'; // откуда брать обновления APK (GitHub Releases)
 // ключ snack остаётся прежним, чтобы старые записи дневника не потерялись
 const MEALS = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
@@ -1247,43 +1247,62 @@ function openWhatsNew(rel) {
   wnRelease = rel;
   $('#wnTitle').textContent = `Что нового · ${rel.tag}`;
   $('#wnNotes').innerHTML = notesHtml(rel.notes);
+  // сброс после прошлой попытки
+  $('#wnGo').disabled = false;
+  $('#wnGo').textContent = '⬇️ Скачать и установить';
+  $('#wnProg').classList.add('hidden');
+  $('#wnProg').firstElementChild.classList.remove('indet');
   show('#whatsNew');
 }
 $('#wnGo').addEventListener('click', () => { if (wnRelease) installRelease(wnRelease); });
 
-// в APK обновление скачивается внутри приложения и сразу ставится; в браузере — обычное скачивание
-const setProg = (pct) => {
-  $('#wnProg').firstElementChild.style.width = pct + '%';
-  $('#wnGo').textContent = `⬇️ Скачиваю… ${pct}%`;
+// в APK скачиваем внутри приложения (нативная загрузка с прогрессом) и сразу ставим; в браузере — обычное скачивание
+const mb = (b) => (b / 1048576).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+const setProg = (pct, bytes = 0, total = 0) => {
+  const bar = $('#wnProg').firstElementChild;
+  if (pct == null) { bar.classList.add('indet'); bar.style.width = ''; }
+  else { bar.classList.remove('indet'); bar.style.width = pct + '%'; }
+  $('#wnGo').textContent = pct == null
+    ? '⬇️ Скачиваю…'
+    : `⬇️ Скачиваю… ${pct}%${bytes ? ` · ${mb(bytes)} МБ` : ''}${total == 0 ? '' : ' из ' + mb(total)}`;
 };
 async function installRelease(rel) {
   const P = native();
-  if (!P?.Filesystem || !P?.ApkInstaller) { location.href = rel.url; return; }
+  if (!P?.AppUpdater) { location.href = rel.url; return; } // сайт: обычное скачивание браузером
   const prog = $('#wnProg'), btn = $('#wnGo');
   prog.classList.remove('hidden');
-  setProg(0);
   btn.disabled = true;
-  const handle = await P.Filesystem.addListener('progress', (st) => {
-    setProg(st.contentLength > 0 ? Math.min(100, Math.round((st.bytes / st.contentLength) * 100)) : 0);
-  }).catch(() => null);
-  try {
-    const res = await P.Filesystem.downloadFile({ url: rel.url, path: 'kalorii-update.apk', directory: 'CACHE', progress: true });
-    await handle?.remove();
-    btn.textContent = 'Устанавливаю…';
-    await P.ApkInstaller.install({ path: res.path });
-    hide('#whatsNew');
-  } catch (e) {
-    await handle?.remove();
+  btn.textContent = '⬇️ Начинаю скачивание…';
+  setProg(null);
+  const reset = () => {
+    btn.disabled = false;
+    btn.textContent = '⬇️ Скачать и установить';
     prog.classList.add('hidden');
-    toast('Не удалось обновить: ' + (e.message || e));
-  } finally {
-    // если установщик не открылся (или окно закрыли) — вернуть кнопку
-    setTimeout(() => {
-      btn.disabled = false;
-      btn.textContent = '⬇️ Скачать и установить';
-      prog.classList.add('hidden');
-    }, 4000);
+    prog.firstElementChild.classList.remove('indet');
+  };
+  const onProg = (e) => {
+    const total = e.total > 0 ? e.total : (rel.size || 0);
+    const pct = total > 0 ? Math.min(100, Math.round((e.bytes / total) * 100)) : null;
+    setProg(pct, e.bytes, total);
+  };
+  const onErr = (e) => {
+    toast('Не удалось скачать обновление: ' + (e.message || 'неизвестная ошибка'));
+    reset();
+  };
+  const onInstalling = () => { btn.textContent = 'Устанавливаю…'; };
+  const handlers = await Promise.all([
+    P.AppUpdater.addListener('progress', onProg),
+    P.AppUpdater.addListener('error', onErr),
+    P.AppUpdater.addListener('installing', onInstalling),
+  ]).catch(() => []);
+  try {
+    await P.AppUpdater.downloadAndInstall({ url: rel.url });
+  } catch (e) {
+    onErr(e);
   }
+  // страховка: если через полминуты ничего не пришло — вернуть кнопку
+  setTimeout(() => { if (btn.textContent.includes('Начинаю')) { reset(); toast('Не удалось начать скачивание'); } }, 30000);
+  setTimeout(() => handlers.forEach((h) => h?.remove?.()), 10 * 60 * 1000);
 }
 $('#wnLater').addEventListener('click', () => hide('#whatsNew'));
 
@@ -1300,7 +1319,7 @@ async function checkUpdate(manual) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
     const apk = j.assets?.find((a) => a.name.endsWith('.apk'));
-    release = apk ? { tag: j.tag_name.replace(/^v/i, ''), url: apk.browser_download_url, notes: j.body || '' } : null;
+    release = apk ? { tag: j.tag_name.replace(/^v/i, ''), url: apk.browser_download_url, notes: j.body || '', size: apk.size || 0 } : null;
     const fresh = release && newer(release.tag, APP_VERSION);
     $('#updDot').hidden = !fresh;
     if (fresh && !manual) showUpdateBanner(release.tag);
