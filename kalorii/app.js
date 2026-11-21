@@ -18,7 +18,7 @@ const sum = (entries) => entries.reduce((a, e) => {
   a.kcal += t.kcal; a.p += t.p; a.f += t.f; a.c += t.c; return a;
 }, { kcal: 0, p: 0, f: 0, c: 0 });
 
-const APP_VERSION = '2.5';
+const APP_VERSION = '2.6';
 const REPO = 'PavelCGB/kalorii'; // откуда брать обновления APK (GitHub Releases)
 // ключ snack остаётся прежним, чтобы старые записи дневника не потерялись
 const MEALS = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
@@ -1308,7 +1308,7 @@ $('#wnLater').addEventListener('click', () => hide('#whatsNew'));
 
 $('#updateBanner').addEventListener('click', () => {
   $('#updateBanner').classList.remove('on');
-  if (release) openWhatsNew(release); else checkUpdate(true);
+  if (release && newer(release.tag, APP_VERSION)) openWhatsNew(release); else checkUpdate(true);
 });
 async function checkUpdate(manual) {
   const btn = $('#updBtn');
@@ -1323,6 +1323,7 @@ async function checkUpdate(manual) {
     const fresh = release && newer(release.tag, APP_VERSION);
     $('#updDot').hidden = !fresh;
     if (fresh && !manual) showUpdateBanner(release.tag);
+    else if (!fresh) $('#updateBanner').classList.remove('on'); // обновились — плашка больше не нужна
   } catch (e) {
     release = null; err = e;
   } finally {
@@ -1331,6 +1332,7 @@ async function checkUpdate(manual) {
   if (!manual) return;
   if (err) return toast('Не удалось проверить обновления — нет интернета или GitHub недоступен');
   if (!release) return toast('В релизах на GitHub нет APK — скачать нечего');
+  if (!newer(release.tag, APP_VERSION)) return toast(`У тебя последняя версия ${APP_VERSION}`);
   openWhatsNew(release);
 }
 $('#updBtn').addEventListener('click', () => checkUpdate(true));
