@@ -18,7 +18,7 @@ const sum = (entries) => entries.reduce((a, e) => {
   a.kcal += t.kcal; a.p += t.p; a.f += t.f; a.c += t.c; return a;
 }, { kcal: 0, p: 0, f: 0, c: 0 });
 
-const APP_VERSION = '2.1';
+const APP_VERSION = '2.2';
 const REPO = 'PavelCGB/kalorii'; // откуда брать обновления APK (GitHub Releases)
 // ключ snack остаётся прежним, чтобы старые записи дневника не потерялись
 const MEALS = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
@@ -1287,6 +1287,15 @@ checkUpdate(false);
 
 // ---------- старт ----------
 renderDay();
+// приветствие: яблоко режется ножом → поворот → название; ~2,4 с, тап пропускает
+const splash = $('#splash');
+const closeSplash = () => {
+  if (!splash.isConnected) return;
+  splash.classList.add('done');
+  setTimeout(() => splash.remove(), 400);
+};
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) splash.remove();
+else { setTimeout(closeSplash, 2300); splash.addEventListener('click', closeSplash); }
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }

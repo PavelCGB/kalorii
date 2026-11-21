@@ -15,6 +15,23 @@
   <script>try { if (JSON.parse(localStorage.getItem('kc_settings'))?.theme === 'dark') document.documentElement.dataset.theme = 'dark'; } catch {}</script>
 </head>
 <body>
+  <!-- экран приветствия: яблоко режется ножом, поворот, всплывает название -->
+  <div id="splash" aria-hidden="true">
+    <div class="sp-scene">
+      <div class="sp-apple">
+        <div class="sp-half left"><svg viewBox="0 0 24 28"><path d="M12 8c-2-1.6-5.5-1.8-7.6.6C2 11.3 2.6 17 5.2 21c1.5 2.4 3.4 4 5 3.5.8-.3 1.2-.5 1.8-.5s1 .2 1.8.5c1.6.5 3.5-1.1 5-3.5 2.6-4 3.2-9.7.8-12.4C17.5 6.2 14 6.4 12 8z" fill="#ff5d5d"/><path d="M12 8c0-2.5.8-4.6 2.4-6" stroke="#6b4a2b" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M13.5 5.2c1.2-2.4 4-3.4 6.4-2.6-.9 2.4-3.6 3.6-6.4 2.6z" fill="#3fbf6a"/><ellipse cx="7.5" cy="12.5" rx="1.6" ry="2.6" fill="#fff" opacity=".55" transform="rotate(20 7.5 12.5)"/></svg></div>
+        <div class="sp-half right"><svg viewBox="0 0 24 28"><path d="M12 8c-2-1.6-5.5-1.8-7.6.6C2 11.3 2.6 17 5.2 21c1.5 2.4 3.4 4 5 3.5.8-.3 1.2-.5 1.8-.5s1 .2 1.8.5c1.6.5 3.5-1.1 5-3.5 2.6-4 3.2-9.7.8-12.4C17.5 6.2 14 6.4 12 8z" fill="#ff5d5d"/><path d="M12 8c0-2.5.8-4.6 2.4-6" stroke="#6b4a2b" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M13.5 5.2c1.2-2.4 4-3.4 6.4-2.6-.9 2.4-3.6 3.6-6.4 2.6z" fill="#3fbf6a"/></svg></div>
+        <svg class="sp-knife" viewBox="0 0 90 26" aria-hidden="true">
+          <path d="M3 9.5 L60 6 Q72 6 74 10 L74 12.5 Q72 16.5 60 16.5 L3 14 Z" fill="#dfe7ea"/>
+          <path d="M3 9.5 L60 6 Q72 6 74 10 L74 12.5 L3 14 Z" fill="#f2f7f9"/>
+          <rect x="59" y="7.5" width="7" height="11" rx="2" fill="#9aa8ae"/>
+          <rect x="66" y="6.5" width="20" height="13" rx="4" fill="#5b4636"/>
+        </svg>
+      </div>
+      <h1 class="sp-title">Кал<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 8c-2-1.6-5.5-1.8-7.6.6C2 11.3 2.6 17 5.2 21c1.5 2.4 3.4 4 5 3.5.8-.3 1.2-.5 1.8-.5s1 .2 1.8.5c1.6.5 3.5-1.1 5-3.5 2.6-4 3.2-9.7.8-12.4C17.5 6.2 14 6.4 12 8z" fill="#ff5d5d"/><path d="M12 8c0-2.5.8-4.6 2.4-6" stroke="#6b4a2b" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M13.5 5.2c1.2-2.4 4-3.4 6.4-2.6-.9 2.4-3.6 3.6-6.4 2.6z" fill="#3fbf6a"/><ellipse cx="7.5" cy="12.5" rx="1.6" ry="2.6" fill="#fff" opacity=".55" transform="rotate(20 7.5 12.5)"/></svg>рии</h1>
+      <p class="sp-sub">дневник питания</p>
+    </div>
+  </div>
   <header class="top">
     <h1 class="logo" aria-label="Калории">Кал<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 8c-2-1.6-5.5-1.8-7.6.6C2 11.3 2.6 17 5.2 21c1.5 2.4 3.4 4 5 3.5.8-.3 1.2-.5 1.8-.5s1 .2 1.8.5c1.6.5 3.5-1.1 5-3.5 2.6-4 3.2-9.7.8-12.4C17.5 6.2 14 6.4 12 8z" fill="#ff5d5d"/><path d="M12 8c0-2.5.8-4.6 2.4-6" stroke="#6b4a2b" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M13.5 5.2c1.2-2.4 4-3.4 6.4-2.6-.9 2.4-3.6 3.6-6.4 2.6z" fill="#3fbf6a"/><ellipse cx="7.5" cy="12.5" rx="1.6" ry="2.6" fill="#fff" opacity=".55" transform="rotate(20 7.5 12.5)"/></svg>рии</h1>
     <div class="top-actions">
