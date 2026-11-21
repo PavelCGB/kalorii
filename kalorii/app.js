@@ -18,7 +18,7 @@ const sum = (entries) => entries.reduce((a, e) => {
   a.kcal += t.kcal; a.p += t.p; a.f += t.f; a.c += t.c; return a;
 }, { kcal: 0, p: 0, f: 0, c: 0 });
 
-const APP_VERSION = '2.6';
+const APP_VERSION = '2.7';
 const REPO = 'PavelCGB/kalorii'; // откуда брать обновления APK (GitHub Releases)
 // ключ snack остаётся прежним, чтобы старые записи дневника не потерялись
 const MEALS = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
@@ -1246,7 +1246,7 @@ function notesHtml(md) {
 function openWhatsNew(rel) {
   wnRelease = rel;
   $('#wnTitle').textContent = `Что нового · ${rel.tag}`;
-  $('#wnNotes').innerHTML = notesHtml(rel.notes);
+  $('#wnNotes').innerHTML = `<p class="muted small">Установлено ${APP_VERSION} → новая ${rel.tag}${rel.size ? ' · ' + mb(rel.size) + ' МБ' : ''}</p>` + notesHtml(rel.notes);
   // сброс после прошлой попытки
   $('#wnGo').disabled = false;
   $('#wnGo').textContent = '⬇️ Скачать и установить';
