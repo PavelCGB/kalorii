@@ -18,7 +18,7 @@ const sum = (entries) => entries.reduce((a, e) => {
   a.kcal += t.kcal; a.p += t.p; a.f += t.f; a.c += t.c; return a;
 }, { kcal: 0, p: 0, f: 0, c: 0 });
 
-const APP_VERSION = '2.3';
+const APP_VERSION = '2.4';
 const REPO = 'PavelCGB/kalorii'; // откуда брать обновления APK (GitHub Releases)
 // ключ snack остаётся прежним, чтобы старые записи дневника не потерялись
 const MEALS = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
@@ -1316,6 +1316,13 @@ async function checkUpdate(manual) {
 }
 $('#updBtn').addEventListener('click', () => checkUpdate(true));
 checkUpdate(false);
+// вернулся в приложение — проверяем ещё раз (не чаще 10 минут), чтобы плашка появилась без перезапуска
+let lastCheck = Date.now();
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || Date.now() - lastCheck < 10 * 60 * 1000) return;
+  lastCheck = Date.now();
+  checkUpdate(false);
+});
 
 // ---------- старт ----------
 renderDay();
