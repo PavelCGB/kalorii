@@ -18,7 +18,7 @@ const sum = (entries) => entries.reduce((a, e) => {
   a.kcal += t.kcal; a.p += t.p; a.f += t.f; a.c += t.c; return a;
 }, { kcal: 0, p: 0, f: 0, c: 0 });
 
-const APP_VERSION = '2.2';
+const APP_VERSION = '2.3';
 const REPO = 'PavelCGB/kalorii'; // откуда брать обновления APK (GitHub Releases)
 // ключ snack остаётся прежним, чтобы старые записи дневника не потерялись
 const MEALS = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
@@ -1249,10 +1249,42 @@ function openWhatsNew(rel) {
   $('#wnNotes').innerHTML = notesHtml(rel.notes);
   show('#whatsNew');
 }
-$('#wnGo').addEventListener('click', () => {
-  hide('#whatsNew');
-  if (wnRelease) location.href = wnRelease.url; // браузер скачает APK; установка поверх сохранит данные
-});
+$('#wnGo').addEventListener('click', () => { if (wnRelease) installRelease(wnRelease); });
+
+// в APK обновление скачивается внутри приложения и сразу ставится; в браузере — обычное скачивание
+const setProg = (pct) => {
+  $('#wnProg').firstElementChild.style.width = pct + '%';
+  $('#wnGo').textContent = `⬇️ Скачиваю… ${pct}%`;
+};
+async function installRelease(rel) {
+  const P = native();
+  if (!P?.Filesystem || !P?.ApkInstaller) { location.href = rel.url; return; }
+  const prog = $('#wnProg'), btn = $('#wnGo');
+  prog.classList.remove('hidden');
+  setProg(0);
+  btn.disabled = true;
+  const handle = await P.Filesystem.addListener('progress', (st) => {
+    setProg(st.contentLength > 0 ? Math.min(100, Math.round((st.bytes / st.contentLength) * 100)) : 0);
+  }).catch(() => null);
+  try {
+    const res = await P.Filesystem.downloadFile({ url: rel.url, path: 'kalorii-update.apk', directory: 'CACHE', progress: true });
+    await handle?.remove();
+    btn.textContent = 'Устанавливаю…';
+    await P.ApkInstaller.install({ path: res.path });
+    hide('#whatsNew');
+  } catch (e) {
+    await handle?.remove();
+    prog.classList.add('hidden');
+    toast('Не удалось обновить: ' + (e.message || e));
+  } finally {
+    // если установщик не открылся (или окно закрыли) — вернуть кнопку
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = '⬇️ Скачать и установить';
+      prog.classList.add('hidden');
+    }, 4000);
+  }
+}
 $('#wnLater').addEventListener('click', () => hide('#whatsNew'));
 
 $('#updateBanner').addEventListener('click', () => {

@@ -203,6 +203,8 @@ main { padding: 10px 16px 120px; max-width: 640px; margin: 0 auto; }
 .wn-notes p { margin: 0 0 8px; }
 .wn-notes ul { margin: 0 0 8px; padding-left: 20px; }
 .wn-notes li { margin: 3px 0; }
+.wn-prog { height: 10px; border-radius: 999px; background: var(--bg); overflow: hidden; margin: 0 0 12px; border: 1px solid var(--line); }
+.wn-prog i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }
 
 .overlay {
   position: fixed; inset: 0; z-index: 20;
