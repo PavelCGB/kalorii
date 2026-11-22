@@ -134,6 +134,15 @@ main { padding: 10px 16px 120px; max-width: 640px; margin: 0 auto; }
 .prot-plus { font-style: normal; flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 24px; font-weight: 900; line-height: 1; transition: transform .12s ease; }
 .prot-add:active .prot-plus { transform: scale(.9); }
 
+/* «что ИИ думает и ищет» под кнопкой фото */
+.pr-steps { margin: 10px 0; padding: 10px 12px; border-radius: 14px; background: var(--bg); font-size: 13.5px; line-height: 1.45; }
+.pr-steps p { margin: 4px 0; }
+.pr-steps .ok { color: var(--accent); font-weight: 800; }
+.pr-steps .err { color: var(--danger); font-weight: 700; }
+.pr-cand { display: block; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; padding: 8px 10px; margin: 6px 0; cursor: pointer; font-size: 13px; font-weight: 700; color: inherit; }
+.pr-cand .muted { font-weight: 700; }
+
 /* вода */
 .water { display: flex; gap: 8px; margin-top: 12px; }
 .water button {

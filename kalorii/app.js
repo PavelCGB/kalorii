@@ -18,7 +18,7 @@ const sum = (entries) => entries.reduce((a, e) => {
   a.kcal += t.kcal; a.p += t.p; a.f += t.f; a.c += t.c; return a;
 }, { kcal: 0, p: 0, f: 0, c: 0 });
 
-const APP_VERSION = '2.8';
+const APP_VERSION = '2.9';
 const REPO = 'PavelCGB/kalorii'; // откуда брать обновления APK (GitHub Releases)
 // ключ snack остаётся прежним, чтобы старые записи дневника не потерялись
 const MEALS = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
@@ -250,6 +250,7 @@ function addScoop() {
 
 $('#protAdd').addEventListener('click', addScoop);
 $('#protEdit').addEventListener('click', openProtSheet);
+$('#prSearch').addEventListener('click', () => searchProteinOnline($('#prName').value));
 ['#prK', '#prP', '#prF', '#prC', '#prScoop'].forEach((s) => $(s).addEventListener('input', protPreview));
 $('#prSave').addEventListener('click', () => {
   const p = readProt();
@@ -260,28 +261,91 @@ $('#prSave').addEventListener('click', () => {
   toast(`Протеин сохранён: 1 скуп ${r0(p.scoop)} г`);
 });
 
-// фото банки → ИИ читает название, КБЖУ на 100 г и вес мерной ложки
+// фото банки → ИИ читает КБЖУ; если не видно — ищем продукт в интернете. Каждый шаг виден в панели.
+const prStep = (html) => {
+  const box = $('#prSteps');
+  box.classList.remove('hidden');
+  const p = document.createElement('p');
+  p.innerHTML = html;
+  box.append(p);
+  box.scrollTop = box.scrollHeight;
+  return p;
+};
+
+async function offFind(q) {
+  const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1&page_size=8' +
+    '&fields=code,product_name,product_name_ru,brands,nutriments&search_terms=' + encodeURIComponent(q);
+  const r = await fetch(url);
+  const j = await r.json();
+  return (j.products || []).map(offToProduct).filter(Boolean).slice(0, 4);
+}
+
+function prCandidates(items) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = items.map((it, i) => `<button class="pr-cand" data-pr="${i}">${esc(it.name)}${it.brand ? ' · ' + esc(it.brand) : ''}
+      <br><span class="muted small">${r0(it.per100.kcal)} ккал · Б ${r1(it.per100.p)} · Ж ${r1(it.per100.f)} · У ${r1(it.per100.c)} на 100 г</span></button>`).join('');
+  wrap.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pr]'); if (!b) return;
+    const it = items[Number(b.dataset.pr)];
+    $('#prName').value = it.name;
+    $('#prK').value = r1(it.per100.kcal); $('#prP').value = r1(it.per100.p);
+    $('#prF').value = r1(it.per100.f); $('#prC').value = r1(it.per100.c);
+    protPreview();
+    prStep(`<span class="ok">✅ Взял «${esc(it.name)}» из Open Food Facts — проверь вес скупа и сохрани</span>`);
+  });
+  $('#prSteps').append(wrap);
+}
+
+async function searchProteinOnline(q) {
+  q = (q || '').trim();
+  if (!q) return prStep('🤔 Сначала впиши название протеина — поищу его в интернете');
+  const p = prStep(`🔎 Ищу «${esc(q)}» в Open Food Facts…`);
+  try {
+    const found = await offFind(q);
+    p.innerHTML = found.length ? `🔎 Нашёл в интернете — нажми подходящий:` : '😕 В Open Food Facts такого нет — введи цифры с банки вручную';
+    if (found.length) prCandidates(found);
+  } catch {
+    p.className = 'err';
+    p.textContent = 'Нет связи с Open Food Facts — проверь интернет';
+  }
+}
+
 $('#prPhoto').addEventListener('change', async (e) => {
   const file = e.target.files?.[0]; e.target.value = '';
   if (!file) return;
-  if (!settings.apiKey) return toast('Для фото нужен ключ API в настройках ⚙️');
-  toast('🤖 Читаю банку…');
+  $('#prSteps').innerHTML = '';
+  if (!settings.apiKey) { prStep('<span class="err">Для фото нужен ключ API в настройках ⚙️</span>'); return; }
+  prStep('🤖 Смотрю на банку…');
+  let item = null, note = '';
   try {
     const res = await askAI([
       { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: await fileToJpegBase64(file, 1600) } },
-      { type: 'text', text: 'Это банка протеина. Прочитай название и пищевую ценность на 100 г. Если ценность указана на порцию — пересчитай на 100 г. В поле piece укажи вес одной мерной ложки (скупа) в граммах, если он написан на банке; если не написан — 30. Верни ровно один item. Если таблицы КБЖУ не видно — items пустой и объясни в note.' },
+      { type: 'text', text: 'Это упаковка протеина (банка или рекламная картинка). Прочитай название и бренд, вес банки и число порций. '
+        + 'КБЖУ верни НА 100 Г. Если на упаковке указано на порцию (например «117 ккал и 24 г белка в порции», «900 г, 30 порций») — '
+        + 'сначала посчитай вес одной порции в граммах, потом пересчитай значения на 100 г. '
+        + 'В поле piece укажи вес одной порции (мерной ложки) в граммах. Верни ровно один item. '
+        + 'Если пищевой ценности не видно — всё равно верни один item только с названием (kcal = 0), а в note напиши, чего не хватает.' },
     ]);
-    const i = res.items?.[0];
-    if (!i) return toast(res.note || 'Не нашёл КБЖУ на фото — сфоткай таблицу крупнее');
-    if (i.name) $('#prName').value = i.name;
-    $('#prK').value = r1(num(i.kcal)); $('#prP').value = r1(num(i.protein));
-    $('#prF').value = r1(num(i.fat)); $('#prC').value = r1(num(i.carbs));
-    if (num(i.piece) > 0) $('#prScoop').value = r1(num(i.piece));
-    protPreview();
-    toast('Готово — сверь цифры с банкой и нажми «Сохранить»');
+    item = res.items?.[0] || null;
+    note = String(res.note || '');
+    if (item?.name) $('#prName').value = String(item.name).trim();
+    if (!item || num(item.kcal) <= 0) {
+      prStep(`🤔 КБЖУ на картинке не разобрать${note ? ` (вижу: ${esc(note)})` : ''} — поищу в интернете`);
+    }
   } catch (err) {
-    toast(aiErr(err) || 'Не получилось прочитать фото');
+    prStep(`<span class="err">${esc(aiErr(err) || 'Не получилось разобрать фото')}</span> — попробую поискать в интернете`);
   }
+  if (item && num(item.kcal) > 0) {
+    $('#prK').value = r1(num(item.kcal)); $('#prP').value = r1(num(item.protein));
+    $('#prF').value = r1(num(item.fat)); $('#prC').value = r1(num(item.carbs));
+    if (num(item.piece) > 0) $('#prScoop').value = r1(num(item.piece));
+    protPreview();
+    prStep(`<span class="ok">✅ Разобрал по фото: ${r1(num(item.kcal))} ккал на 100 г${num(item.piece) ? `, скуп ${r1(num(item.piece))} г` : ''} — сверь с банкой</span>`);
+    return;
+  }
+  // имя не пришло — пробуем вытащить из примечания ИИ («Вэй Про, Geneticlab…»)
+  if (!$('#prName').value.trim() && note) $('#prName').value = note.split(',')[0].trim();
+  await searchProteinOnline($('#prName').value);
 });
 
 // ---------- нижнее меню ----------
