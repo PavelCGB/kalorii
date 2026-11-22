@@ -18,14 +18,14 @@ const sum = (entries) => entries.reduce((a, e) => {
   a.kcal += t.kcal; a.p += t.p; a.f += t.f; a.c += t.c; return a;
 }, { kcal: 0, p: 0, f: 0, c: 0 });
 
-const APP_VERSION = '2.7';
+const APP_VERSION = '2.8';
 const REPO = 'PavelCGB/kalorii'; // откуда брать обновления APK (GitHub Releases)
 // ключ snack остаётся прежним, чтобы старые записи дневника не потерялись
 const MEALS = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
 const MEAL_ICON = { breakfast: '🍳', lunch: '🍲', dinner: '🥗', snack: '🍎' };
 const MACRO3 = [['p', 'Белки', 'var(--p)'], ['f', 'Жиры', 'var(--f)'], ['c', 'Углеводы', 'var(--c)']];
 const WATER_GLASSES = 8;
-const DEFAULTS = { goals: { kcal: 2000, p: 100, f: 70, c: 250 }, apiKey: '', model: 'google/gemma-4-31b-it:free' };
+const DEFAULTS = { goals: { kcal: 2000, p: 100, f: 70, c: 250 }, apiKey: '', model: 'google/gemma-4-31b-it:free', protein: null };
 
 // ---------- хранилище ----------
 function load(key, def) {
@@ -102,6 +102,8 @@ function renderDay() {
   $('#waterLabel').textContent = `${w} из ${WATER_GLASSES} стаканов`;
   $('#water').innerHTML = Array.from({ length: WATER_GLASSES }, (_, i) =>
     `<button class="${i < w ? 'on' : ''}" data-glass="${i}" aria-label="Стакан ${i + 1}"></button>`).join('');
+
+  renderProtein();
 
   // приёмы пищи: строка-сводка, по нажатию раскрывается список блюд
   $('#meals').innerHTML = Object.entries(MEALS).map(([m, label]) => {
@@ -195,6 +197,91 @@ $('#copyYesterday').addEventListener('click', () => {
   src.forEach((e) => list.push({ ...e, id: uid(), t: Date.now() }));
   saveDiary(); renderDay();
   toast(`Скопировано со вчера: ${src.length} шт · ${r0(sum(src).kcal)} ккал`);
+});
+
+// ---------- протеин: баночка на главном экране, один тап = один скуп ----------
+const readProt = () => ({
+  name: $('#prName').value.trim() || 'Протеин',
+  per100: { kcal: num($('#prK').value), p: num($('#prP').value), f: num($('#prF').value), c: num($('#prC').value) },
+  scoop: num($('#prScoop').value),
+});
+
+function renderProtein() {
+  const p = settings.protein;
+  $('#protName').textContent = p ? p.name : 'Протеин';
+  if (p) {
+    const t = scale(p.per100, p.scoop);
+    $('#protSub').textContent = `1 скуп ${r0(p.scoop)} г · ${r0(t.kcal)} ккал · Б ${r1(t.p)} г`;
+  } else {
+    $('#protSub').textContent = 'Нажми, чтобы настроить';
+  }
+}
+
+function protPreview() {
+  const p = readProt();
+  const t = scale(p.per100, p.scoop);
+  $('#prResult').innerHTML = p.per100.kcal && p.scoop
+    ? `<div class="big bump">${r0(t.kcal)} ккал</div><div class="muted">1 скуп ${r0(p.scoop)} г · Б ${r1(t.p)} · Ж ${r1(t.f)} · У ${r1(t.c)} г</div>`
+    : '<span class="muted">Заполни КБЖУ на 100 г и вес скупа</span>';
+}
+
+function openProtSheet() {
+  const p = settings.protein || { name: '', per100: {}, scoop: 30 };
+  $('#prName').value = p.name || '';
+  $('#prK').value = p.per100.kcal ?? '';
+  $('#prP').value = p.per100.p ?? '';
+  $('#prF').value = p.per100.f ?? '';
+  $('#prC').value = p.per100.c ?? '';
+  $('#prScoop').value = p.scoop || 30;
+  protPreview();
+  show('#protSheet');
+}
+
+function addScoop() {
+  const p = settings.protein;
+  if (!p) return openProtSheet();
+  const e = { id: uid(), name: p.name + ' (1 скуп)', grams: p.scoop, per100: p.per100, meal: mealByTime(), barcode: null, source: 'protein', piece: null, t: Date.now() };
+  (diary[curDate] ||= []).push(e);
+  lastAdded = e.id;
+  saveDiary(); renderDay();
+  const t = scale(p.per100, p.scoop);
+  toast(`+1 скуп: ${r0(t.kcal)} ккал · Б ${r1(t.p)} г`);
+}
+
+$('#protAdd').addEventListener('click', addScoop);
+$('#protEdit').addEventListener('click', openProtSheet);
+['#prK', '#prP', '#prF', '#prC', '#prScoop'].forEach((s) => $(s).addEventListener('input', protPreview));
+$('#prSave').addEventListener('click', () => {
+  const p = readProt();
+  if (!p.per100.kcal) return toast('Укажи калории на 100 г');
+  if (!p.scoop) return toast('Укажи, сколько грамм в скупе');
+  settings.protein = p;
+  saveSettings(); hide('#protSheet'); renderProtein();
+  toast(`Протеин сохранён: 1 скуп ${r0(p.scoop)} г`);
+});
+
+// фото банки → ИИ читает название, КБЖУ на 100 г и вес мерной ложки
+$('#prPhoto').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0]; e.target.value = '';
+  if (!file) return;
+  if (!settings.apiKey) return toast('Для фото нужен ключ API в настройках ⚙️');
+  toast('🤖 Читаю банку…');
+  try {
+    const res = await askAI([
+      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: await fileToJpegBase64(file, 1600) } },
+      { type: 'text', text: 'Это банка протеина. Прочитай название и пищевую ценность на 100 г. Если ценность указана на порцию — пересчитай на 100 г. В поле piece укажи вес одной мерной ложки (скупа) в граммах, если он написан на банке; если не написан — 30. Верни ровно один item. Если таблицы КБЖУ не видно — items пустой и объясни в note.' },
+    ]);
+    const i = res.items?.[0];
+    if (!i) return toast(res.note || 'Не нашёл КБЖУ на фото — сфоткай таблицу крупнее');
+    if (i.name) $('#prName').value = i.name;
+    $('#prK').value = r1(num(i.kcal)); $('#prP').value = r1(num(i.protein));
+    $('#prF').value = r1(num(i.fat)); $('#prC').value = r1(num(i.carbs));
+    if (num(i.piece) > 0) $('#prScoop').value = r1(num(i.piece));
+    protPreview();
+    toast('Готово — сверь цифры с банкой и нажми «Сохранить»');
+  } catch (err) {
+    toast(aiErr(err) || 'Не получилось прочитать фото');
+  }
 });
 
 // ---------- нижнее меню ----------

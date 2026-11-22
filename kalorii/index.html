@@ -74,6 +74,23 @@
 
     <section class="card"><div class="macros" id="macros"></div></section>
 
+    <section class="card protein" id="proteinCard">
+      <button class="prot-add" id="protAdd" aria-label="Добавить скуп протеина">
+        <svg class="jar" viewBox="0 0 56 72" aria-hidden="true">
+          <rect x="15" y="3" width="26" height="8" rx="3" fill="#43525a"/>
+          <rect x="11" y="10" width="34" height="57" rx="10" fill="#eef4f7" stroke="#d7e2e7" stroke-width="1.5"/>
+          <rect x="15" y="16" width="7" height="45" rx="3.5" fill="#ffffff" opacity=".7"/>
+          <rect x="16" y="30" width="24" height="26" rx="5" fill="var(--accent)"/>
+          <circle cx="22" cy="43" r="2.6" fill="#fff" opacity=".9"/>
+          <circle cx="28" cy="43" r="2.6" fill="#fff" opacity=".9"/>
+          <circle cx="34" cy="43" r="2.6" fill="#fff" opacity=".9"/>
+        </svg>
+        <span class="prot-txt"><b id="protName">Протеин</b><small id="protSub">Нажми, чтобы настроить</small></span>
+        <i class="prot-plus" aria-hidden="true">+</i>
+      </button>
+      <button class="icon-btn" id="protEdit" aria-label="Настроить протеин">⚙️</button>
+    </section>
+
     <section class="card">
       <h3>💧 Вода <small id="waterLabel"></small></h3>
       <div class="water" id="water"></div>
@@ -330,6 +347,34 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
+
+  <!-- Протеин -->
+  <div id="protSheet" class="overlay hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>Протеин</h2>
+        <button class="icon-btn" data-close aria-label="Закрыть">✕</button>
+      </div>
+      <label class="btn secondary wide">📷 Сфоткать банку — ИИ заполнит КБЖУ
+        <input type="file" accept="image/*" capture="environment" id="prPhoto" hidden>
+      </label>
+      <label class="field">Название
+        <input id="prName" placeholder="Например: Whey Gold Standard">
+      </label>
+      <p class="muted small">Пищевая ценность на 100 г — как на банке:</p>
+      <div class="grid4">
+        <label>Ккал<input id="prK" type="number" step="any" inputmode="decimal" placeholder="380"></label>
+        <label>Белки<input id="prP" type="number" step="any" inputmode="decimal" placeholder="75"></label>
+        <label>Жиры<input id="prF" type="number" step="any" inputmode="decimal" placeholder="6"></label>
+        <label>Углев.<input id="prC" type="number" step="any" inputmode="decimal" placeholder="7"></label>
+      </div>
+      <label class="field">Сколько грамм в одном скупе
+        <input id="prScoop" type="number" step="any" inputmode="decimal" placeholder="30">
+      </label>
+      <div class="result" id="prResult"></div>
+      <button id="prSave" class="btn wide">Сохранить</button>
+    </div>
+  </div>
 
   <!-- Что нового в обновлении -->
   <div id="whatsNew" class="overlay hidden">
