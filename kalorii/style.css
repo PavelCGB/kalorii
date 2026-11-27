@@ -114,7 +114,7 @@ main { padding: 10px 16px 120px; max-width: 640px; margin: 0 auto; }
 .stat strong { display: block; font-size: 20px; font-weight: 900; }
 
 /* Б/Ж/У плитки */
-.macros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.macros { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .m { background: var(--bg); border-radius: 20px; padding: 12px; }
 .m p { margin: 0; font-size: 12px; color: var(--muted); font-weight: 700; }
 .m b { font-size: 17px; font-weight: 900; white-space: nowrap; }
@@ -123,6 +123,11 @@ main { padding: 10px 16px 120px; max-width: 640px; margin: 0 auto; }
 .bar { height: 8px; border-radius: 9px; background: var(--line); margin-top: 8px; overflow: hidden; }
 .bar > i { display: block; height: 100%; border-radius: 9px; width: 0; transition: width .6s cubic-bezier(.2, .8, .2, 1); }
 .bar > i.over { background: var(--danger) !important; }
+
+/* протеин и кофеин — одной карточкой, две строки */
+.duo { padding: 12px 12px 12px 16px; }
+.duo-row { display: flex; align-items: center; gap: 6px; }
+.duo-row + .duo-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 
 /* протеин: баночка + быстрый скуп */
 .protein { display: flex; align-items: center; gap: 6px; padding: 12px 12px 12px 16px; }
@@ -150,11 +155,18 @@ main { padding: 10px 16px 120px; max-width: 640px; margin: 0 auto; }
 .sweet li { margin: 2px 0; }
 .sweet li.warn { color: var(--danger); }
 
-/* кофеин: карточка с полоской дневной нормы */
-.caffeine { padding: 12px 12px 14px 16px; }
-.caf-row { display: flex; align-items: center; gap: 6px; }
-.caf-bar { margin-top: 10px; }
-.caf-bar > i { background: var(--accent); }
+/* история напитков: дни с подсписками */
+.my-list li.caf-day { display: block; justify-content: initial; }
+.caf-day { display: block; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.caf-day:last-child { border-bottom: 0; }
+.caf-day-head { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.caf-day-head b { font-size: 14px; }
+.caf-day-list { list-style: none; margin: 4px 0 0; padding: 0; }
+.caf-day-list li { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); padding: 2px 0; }
+.caf-day-list li .caf-item { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 4px 0; cursor: pointer; font: inherit; color: var(--muted); }
+.caf-day-list li .caf-item:active { transform: scale(.98); }
+.caf-day-list li .caf-item b { color: var(--text); font-weight: 800; }
+.caf-day-list .icon-btn { min-width: 36px; height: 32px; font-size: 15px; }
 
 /* вода */
 .water { display: flex; gap: 8px; margin-top: 12px; }

@@ -20,7 +20,7 @@ const sum = (entries) => entries.reduce((a, e) => {
   a.kcal += t.kcal; a.p += t.p; a.f += t.f; a.c += t.c; return a;
 }, { kcal: 0, p: 0, f: 0, c: 0 });
 
-const APP_VERSION = '2.10';
+const APP_VERSION = '2.11';
 const REPO = 'PavelCGB/kalorii'; // откуда брать обновления APK (GitHub Releases)
 // ключ snack остаётся прежним, чтобы старые записи дневника не потерялись
 const MEALS = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
@@ -78,6 +78,7 @@ let lastAdded = null;
 function renderDay() {
   const entries = diary[curDate] || [];
   const tot = sum(entries);
+  tot.kcal += cafKcal(curDate); // калории напитков с кофеином тоже идут в счёт дня
   const g = settings.goals;
   $('#dateLabel').textContent = dateLabel(curDate);
 
@@ -91,13 +92,15 @@ function renderDay() {
   const frac = goal ? Math.min(1, tot.kcal / goal) : 0;
   $('#ringArc').style.strokeDashoffset = 389.6 * (1 - frac);
 
-  // Б/Ж/У
+  // Б/Ж/У + кофеин квадратиком
+  const cafMg = cafTotal(curDate), cafNormV = num(settings.caffeineNorm) || 400;
   $('#macros').innerHTML = MACRO3.map(([k, label, color]) => {
     const v = tot[k], gg = num(g[k]);
     const pct = gg ? Math.min(100, (v / gg) * 100) : 0;
     return `<div class="m"><p>${label}</p><b>${r0(v)} <small>/ ${gg} г</small></b>
       <div class="bar"><i class="${gg && v > gg ? 'over' : ''}" style="background:${color}" data-w="${pct}"></i></div></div>`;
-  }).join('');
+  }).join('') + `<div class="m"><p>Кофеин</p><b>${r0(cafMg)} <small>/ ${r0(cafNormV)} мг</small></b>
+      <div class="bar"><i class="${cafMg > cafNormV ? 'over' : ''}" style="background:var(--accent)" data-w="${Math.min(100, (cafMg / cafNormV) * 100)}"></i></div></div>`;
 
   // вода
   const w = water[curDate] || 0;
@@ -371,23 +374,24 @@ $('#prPhoto').addEventListener('change', async (e) => {
 });
 
 // ---------- кофеин: сколько выпил и дневная норма ----------
-const CAF = [ // [название, обычный объём мл, мг кофеина на 100 мл]
-  ['Эспрессо', 30, 200], ['Американо / фильтр', 200, 65], ['Капучино', 200, 40],
-  ['Чай чёрный', 200, 25], ['Чай зелёный', 200, 20], ['Кола', 330, 10],
-  ['Энергетик', 450, 32], ['Матча', 200, 70], ['Предтреник', 200, 100],
+const CAF = [ // [название, обычный объём мл, мг кофеина на 100 мл, ккал на 100 мл]
+  ['Эспрессо', 30, 200, 1], ['Американо / фильтр', 200, 65, 1], ['Капучино', 200, 40, 40],
+  ['Чай чёрный', 200, 25, 1], ['Чай зелёный', 200, 20, 1], ['Кола', 330, 10, 42],
+  ['Энергетик', 450, 32, 45], ['Матча', 200, 70, 45], ['Предтреник', 200, 100, 10],
 ];
-let caffeine = load('kc_caffeine', {});   // { 'YYYY-MM-DD': [{name, ml, mg}] }
+let caffeine = load('kc_caffeine', {});   // { 'YYYY-MM-DD': [{name, ml, mg, kcal}] }
 const saveCaffeine = () => localStorage.setItem('kc_caffeine', JSON.stringify(caffeine));
 const cafTotal = (k) => (caffeine[k] || []).reduce((a, e) => a + num(e.mg), 0);
-let cafPer100 = null;
+const cafKcal = (k) => (caffeine[k] || []).reduce((a, e) => a + num(e.kcal), 0);
+let cafPer100 = null;   // мг кофеина на 100 мл
+let cafKcal100 = null;  // ккал на 100 мл
 
 function renderCaffeine() {
   const norm = num(settings.caffeineNorm) || 400;
   const total = cafTotal(curDate);
-  $('#cafSub').textContent = `${r0(total)} из ${r0(norm)} мг`;
-  const bar = $('#cafBar');
-  bar.style.width = Math.min(100, (total / norm) * 100) + '%';
-  bar.classList.toggle('over', total > norm);
+  const kcal = cafKcal(curDate);
+  $('#cafSub').textContent = `${r0(total)} из ${r0(norm)} мг` + (kcal ? ` · ${r0(kcal)} ккал` : '');
+  $('#cafSub').style.color = total > norm ? 'var(--danger)' : '';
 }
 
 // норма кофеина: детям и подросткам меньше, взрослым — по весу, но не больше 400 мг
@@ -418,8 +422,10 @@ $('#cafChips').innerHTML = CAF.map(([n], i) => `<button type="button" data-caf="
 function cafPreview() {
   const ml = num($('#cafMl').value);
   const mg = cafPer100 != null && ml > 0 ? Math.round((cafPer100 * ml) / 100) : null;
+  const kcal = cafKcal100 != null && ml > 0 ? Math.round((cafKcal100 * ml) / 100) : null;
   $('#cafCalc').innerHTML = mg != null
-    ? `<div class="big bump">${r0(mg)} мг</div><div class="muted">${r0(cafPer100)} мг на 100 мл · ${r0(ml)} мл</div>`
+    ? `<div class="big bump">${r0(mg)} мг${kcal ? ` · ${r0(kcal)} ккал` : ''}</div>
+       <div class="muted">${r0(cafPer100)} мг на 100 мл${cafKcal100 != null ? ` · ${r0(cafKcal100)} ккал на 100 мл` : ''} · ${r0(ml)} мл</div>`
     : '<span class="muted">Выбери напиток, впиши свой или спроси ИИ</span>';
 }
 
@@ -427,20 +433,32 @@ $('#cafAdd').addEventListener('click', () => {
   $('#cafName').value = '';
   $('#cafMl').value = 200;
   cafPer100 = null;
+  cafKcal100 = null;
   cafPreview();
   show('#cafSheet');
 });
 $('#cafAge').addEventListener('input', cafSuggest);
 
+// история напитков: сегодня + прошлые дни (удалять можно в любой день)
 function renderCafToday() {
-  const list = caffeine[curDate] || [];
   const norm = num(settings.caffeineNorm) || 400;
-  const total = list.reduce((a, e) => a + num(e.mg), 0);
-  $('#cafTodaySum').textContent = `${r0(total)} из ${r0(norm)} мг`;
-  $('#cafToday').innerHTML = list.length
-    ? list.map((e, i) => `<li><span>${esc(e.name)} <span class="muted">· ${r0(e.ml)} мл · ${r0(e.mg)} мг</span></span>
-        <button class="icon-btn" data-caf-del="${i}" aria-label="Удалить">🗑</button></li>`).join('')
-    : '<li class="muted">Пока пусто.</li>';
+  $('#cafTodaySum').textContent = `${r0(cafTotal(curDate))} из ${r0(norm)} мг · ${r0(cafKcal(curDate))} ккал`;
+  const days = Object.keys(caffeine).filter((k) => caffeine[k]?.length).sort().reverse().slice(0, 7);
+  if (!days.length) {
+    $('#cafToday').innerHTML = '<li class="muted">Пока пусто — добавь первый напиток.</li>';
+    return;
+  }
+  $('#cafToday').innerHTML = days.map((k) => {
+    const list = caffeine[k];
+    const mg = list.reduce((a, e) => a + num(e.mg), 0);
+    const kc = list.reduce((a, e) => a + num(e.kcal), 0);
+    return `<li class="caf-day">
+      <div class="caf-day-head"><b>${esc(dateLabel(k))}</b><span class="muted">${r0(mg)} мг${kc ? ` · ${r0(kc)} ккал` : ''}</span></div>
+      <ul class="caf-day-list">${list.map((e, i) => `<li>
+        <button class="caf-item" data-caf-re="${k}|${i}" title="Добавить ещё раз"><b>${esc(e.name)}</b> · ${r0(e.ml)} мл · ${r0(e.mg)} мг${e.kcal ? ` · ${r0(e.kcal)} ккал` : ''}</button>
+        <button class="icon-btn" data-caf-del="${k}|${i}" aria-label="Удалить">🗑</button></li>`).join('')}</ul>
+    </li>`;
+  }).join('');
 }
 
 $('#cafEdit').addEventListener('click', () => {
@@ -457,17 +475,32 @@ $('#cafSetSave').addEventListener('click', () => {
   toast(`Норма: ${r0(settings.caffeineNorm)} мг в день`);
 });
 $('#cafToday').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-caf-del]'); if (!b) return;
-  const list = caffeine[curDate] || [];
-  list.splice(Number(b.dataset.cafDel), 1);
-  if (!list.length) delete caffeine[curDate];
-  saveCaffeine(); renderCafToday(); renderCaffeine();
+  const del = e.target.closest('[data-caf-del]');
+  if (del) {
+    const [k, i] = del.dataset.cafDel.split('|');
+    const list = caffeine[k] || [];
+    list.splice(Number(i), 1);
+    if (!list.length) delete caffeine[k];
+    saveCaffeine(); renderCafToday(); renderCaffeine(); renderDay();
+    return;
+  }
+  // тап по напитку — быстрый повтор: добавляем его же сегодня
+  const re = e.target.closest('[data-caf-re]');
+  if (re) {
+    const [k, i] = re.dataset.cafRe.split('|');
+    const e0 = (caffeine[k] || [])[Number(i)];
+    if (!e0) return;
+    (caffeine[curDate] ||= []).push({ ...e0 });
+    saveCaffeine(); renderCafToday(); renderCaffeine(); renderDay();
+    toast(`Ещё ${e0.name}: +${r0(e0.mg)} мг`);
+  }
 });
 $('#cafChips').addEventListener('click', (e) => {
   const b = e.target.closest('[data-caf]'); if (!b) return;
-  const [name, ml, per] = CAF[Number(b.dataset.caf)];
+  const [name, ml, per, kcalPer] = CAF[Number(b.dataset.caf)];
   $('#cafName').value = name; $('#cafMl').value = ml;
   cafPer100 = per;
+  cafKcal100 = kcalPer;
   cafPreview();
 });
 ['#cafMl', '#cafName'].forEach((s) => $(s).addEventListener('input', cafPreview));
@@ -479,16 +512,19 @@ async function cafFromPhoto(file) {
     try {
       const res = await askAI([
         { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: await fileToJpegBase64(file, 1600) } },
-        { type: 'text', text: 'Это напиток (банка, бутылка). Прочитай название и сколько в нём кофеина. '
-          + 'Ответь JSON: {"name":"название","caffeine":мг кофеина на 100 мл,"volume":объём мл}. Если на упаковке указано на всю банку — пересчитай на 100 мл.' },
+        { type: 'text', text: 'Это напиток (банка, бутылка, стакан). Определи, что это за напиток, и сколько в нём кофеина и калорий. '
+          + 'Ответь одним JSON: {"name":"название и бренд","caffeine":мг кофеина на 100 мл,"kcal":ккал на 100 мл,"volume":объём упаковки в мл}. '
+          + 'Если на банке написано количество на всю упаковку (например «кофеин 150 мг» на банку 0,45 л) — пересчитай на 100 мл. '
+          + 'Если кофеина на упаковке нет, но напиток узнаваем (кола, энергетик, кофе) — поставь типичное значение. В note объясни, откуда взял цифру.' },
       ]);
       const v = num(res.caffeine);
       if (v > 0) {
         if (res.name) $('#cafName').value = String(res.name).slice(0, 60);
         if (num(res.volume) > 0) $('#cafMl').value = r0(num(res.volume));
         cafPer100 = v;
+        cafKcal100 = num(res.kcal) || null;
         cafPreview();
-        toast(`ИИ: ≈${r0(v)} мг на 100 мл`);
+        toast(`ИИ: ≈${r0(v)} мг на 100 мл${cafKcal100 ? ` · ${r0(cafKcal100)} ккал` : ''}`);
         return;
       }
     } catch { /* упадём в локальное распознавание */ }
@@ -497,6 +533,7 @@ async function cafFromPhoto(file) {
   const lab = parseLabel(text);
   if (lab.caffeine) {
     cafPer100 = lab.caffeine;
+    cafKcal100 = lab.kcal ?? null;
     if (lab.name && !$('#cafName').value.trim()) $('#cafName').value = lab.name;
     cafPreview();
     toast(`С этикетки: ${r0(lab.caffeine)} мг на 100 мл`);
@@ -517,10 +554,11 @@ $('#cafAi').addEventListener('click', async () => {
   if (!settings.apiKey && !proxyUrl()) return toast('Для ИИ нужен ключ или сервер в настройках ⚙️');
   toast('🤖 Спрашиваю про кофеин…');
   try {
-    const res = await askAI([{ type: 'text', text: `Сколько миллиграммов кофеина в 100 мл напитка «${name}»? Ответь одним JSON: {"caffeine": число}` }]);
-    const v = num(res.caffeine) || num(res.items?.[0]?.kcal) || num(res.items?.[0]?.caffeine);
+    const res = await askAI([{ type: 'text', text: `Сколько кофеина и калорий в 100 мл напитка «${name}»? Ответь одним JSON: {"caffeine": мг на 100 мл, "kcal": ккал на 100 мл}` }]);
+    const v = num(res.caffeine) || num(res.items?.[0]?.caffeine);
     if (!v) return toast('ИИ не назвал цифру — попробуй переформулировать');
     cafPer100 = v;
+    cafKcal100 = num(res.kcal) || null;
     cafPreview();
     toast(`ИИ: ≈${r0(v)} мг кофеина на 100 мл`);
   } catch (e) {
@@ -532,11 +570,12 @@ $('#cafSave').addEventListener('click', () => {
   const ml = num($('#cafMl').value);
   const mg = cafPer100 != null && ml > 0 ? Math.round((cafPer100 * ml) / 100) : null;
   if (!mg) return toast('Не знаю, сколько там кофеина — выбери напиток или спроси ИИ');
+  const kcal = cafKcal100 != null && ml > 0 ? Math.round((cafKcal100 * ml) / 100) : 0;
   saveSettings();
-  (caffeine[curDate] ||= []).push({ name: $('#cafName').value.trim() || 'Кофеин', ml, mg });
+  (caffeine[curDate] ||= []).push({ name: $('#cafName').value.trim() || 'Кофеин', ml, mg, kcal });
   saveCaffeine();
-  hide('#cafSheet'); renderCaffeine();
-  toast(`+${mg} мг · всего ${r0(cafTotal(curDate))} из ${r0(settings.caffeineNorm)} мг`);
+  hide('#cafSheet'); renderCaffeine(); renderDay();
+  toast(`+${mg} мг${kcal ? ` и ${kcal} ккал` : ''} · всего ${r0(cafTotal(curDate))} из ${r0(settings.caffeineNorm)} мг`);
 });
 
 // ---------- нижнее меню ----------

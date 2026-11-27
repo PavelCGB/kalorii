@@ -74,38 +74,37 @@
 
     <section class="card"><div class="macros" id="macros"></div></section>
 
-    <section class="card caffeine" id="caffeineCard">
-      <div class="caf-row">
-        <button class="prot-add" id="cafAdd" aria-label="Добавить кофеин">
-        <svg class="jar" viewBox="0 0 48 52" aria-hidden="true">
-          <path d="M9 17h22v22a5 5 0 0 1-5 5H14a5 5 0 0 1-5-5V17z" fill="#f4efe6" stroke="#d8cdbd" stroke-width="1.5"/>
-          <path d="M31 21h4a5.5 5.5 0 0 1 0 11h-4" fill="none" stroke="#d8cdbd" stroke-width="3"/>
-          <rect x="8" y="12" width="24" height="6" rx="3" fill="#8a5a3b"/>
-          <path d="M15 8c0-2.5 3-2 3-4.5M23 8c0-2.5 3-2 3-4.5" stroke="#c0b09c" stroke-width="2" fill="none" stroke-linecap="round"/>
-        </svg>
-        <span class="prot-txt"><b>Кофеин</b><small id="cafSub">0 из 400 мг</small></span>
-        <i class="prot-plus" aria-hidden="true">+</i>
-      </button>
-      <button class="icon-btn" id="cafEdit" aria-label="Настроить кофеин">⚙️</button>
+    <section class="card duo">
+      <div class="duo-row protein" id="proteinCard">
+        <button class="prot-add" id="protAdd" aria-label="Добавить скуп протеина">
+          <svg class="jar" viewBox="0 0 56 72" aria-hidden="true">
+            <rect x="15" y="3" width="26" height="8" rx="3" fill="#43525a"/>
+            <rect x="11" y="10" width="34" height="57" rx="10" fill="#eef4f7" stroke="#d7e2e7" stroke-width="1.5"/>
+            <rect x="15" y="16" width="7" height="45" rx="3.5" fill="#ffffff" opacity=".7"/>
+            <rect x="16" y="30" width="24" height="26" rx="5" fill="var(--accent)"/>
+            <circle cx="22" cy="43" r="2.6" fill="#fff" opacity=".9"/>
+            <circle cx="28" cy="43" r="2.6" fill="#fff" opacity=".9"/>
+            <circle cx="34" cy="43" r="2.6" fill="#fff" opacity=".9"/>
+          </svg>
+          <span class="prot-txt"><b id="protName">Протеин</b><small id="protSub">Нажми, чтобы настроить</small></span>
+          <i class="prot-plus" aria-hidden="true">+</i>
+        </button>
+        <button class="icon-btn" id="protEdit" aria-label="Настроить протеин">⚙️</button>
       </div>
-      <div class="bar caf-bar"><i id="cafBar"></i></div>
-    </section>
 
-    <section class="card protein" id="proteinCard">
-      <button class="prot-add" id="protAdd" aria-label="Добавить скуп протеина">
-        <svg class="jar" viewBox="0 0 56 72" aria-hidden="true">
-          <rect x="15" y="3" width="26" height="8" rx="3" fill="#43525a"/>
-          <rect x="11" y="10" width="34" height="57" rx="10" fill="#eef4f7" stroke="#d7e2e7" stroke-width="1.5"/>
-          <rect x="15" y="16" width="7" height="45" rx="3.5" fill="#ffffff" opacity=".7"/>
-          <rect x="16" y="30" width="24" height="26" rx="5" fill="var(--accent)"/>
-          <circle cx="22" cy="43" r="2.6" fill="#fff" opacity=".9"/>
-          <circle cx="28" cy="43" r="2.6" fill="#fff" opacity=".9"/>
-          <circle cx="34" cy="43" r="2.6" fill="#fff" opacity=".9"/>
-        </svg>
-        <span class="prot-txt"><b id="protName">Протеин</b><small id="protSub">Нажми, чтобы настроить</small></span>
-        <i class="prot-plus" aria-hidden="true">+</i>
-      </button>
-      <button class="icon-btn" id="protEdit" aria-label="Настроить протеин">⚙️</button>
+      <div class="duo-row caffeine" id="caffeineCard">
+        <button class="prot-add" id="cafAdd" aria-label="Добавить кофеин">
+          <svg class="jar" viewBox="0 0 48 52" aria-hidden="true">
+            <path d="M9 17h22v22a5 5 0 0 1-5 5H14a5 5 0 0 1-5-5V17z" fill="#f4efe6" stroke="#d8cdbd" stroke-width="1.5"/>
+            <path d="M31 21h4a5.5 5.5 0 0 1 0 11h-4" fill="none" stroke="#d8cdbd" stroke-width="3"/>
+            <rect x="8" y="12" width="24" height="6" rx="3" fill="#8a5a3b"/>
+            <path d="M15 8c0-2.5 3-2 3-4.5M23 8c0-2.5 3-2 3-4.5" stroke="#c0b09c" stroke-width="2" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span class="prot-txt"><b>Кофеин</b><small id="cafSub">0 из 400 мг</small></span>
+          <i class="prot-plus" aria-hidden="true">+</i>
+        </button>
+        <button class="icon-btn" id="cafEdit" aria-label="Настроить кофеин">⚙️</button>
+      </div>
     </section>
 
     <section class="card">
@@ -387,7 +386,7 @@
       </div>
       <p id="cafHint" class="muted small"></p>
       <button id="cafSetSave" class="btn wide">Сохранить</button>
-      <h3>Выпито сегодня <small id="cafTodaySum" class="muted"></small></h3>
+      <h3>История напитков <small id="cafTodaySum" class="muted"></small></h3>
       <ul id="cafToday" class="my-list"></ul>
     </div>
   </div>
