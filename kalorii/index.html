@@ -74,6 +74,23 @@
 
     <section class="card"><div class="macros" id="macros"></div></section>
 
+    <section class="card caffeine" id="caffeineCard">
+      <div class="caf-row">
+        <button class="prot-add" id="cafAdd" aria-label="Добавить кофеин">
+        <svg class="jar" viewBox="0 0 48 52" aria-hidden="true">
+          <path d="M9 17h22v22a5 5 0 0 1-5 5H14a5 5 0 0 1-5-5V17z" fill="#f4efe6" stroke="#d8cdbd" stroke-width="1.5"/>
+          <path d="M31 21h4a5.5 5.5 0 0 1 0 11h-4" fill="none" stroke="#d8cdbd" stroke-width="3"/>
+          <rect x="8" y="12" width="24" height="6" rx="3" fill="#8a5a3b"/>
+          <path d="M15 8c0-2.5 3-2 3-4.5M23 8c0-2.5 3-2 3-4.5" stroke="#c0b09c" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
+        <span class="prot-txt"><b>Кофеин</b><small id="cafSub">0 из 400 мг</small></span>
+        <i class="prot-plus" aria-hidden="true">+</i>
+      </button>
+      <button class="icon-btn" id="cafEdit" aria-label="Настроить кофеин">⚙️</button>
+      </div>
+      <div class="bar caf-bar"><i id="cafBar"></i></div>
+    </section>
+
     <section class="card protein" id="proteinCard">
       <button class="prot-add" id="protAdd" aria-label="Добавить скуп протеина">
         <svg class="jar" viewBox="0 0 56 72" aria-hidden="true">
@@ -217,6 +234,7 @@
         <button class="icon-btn" data-close aria-label="Закрыть">✕</button>
       </div>
       <p id="pPer100" class="muted"></p>
+      <div id="pSweet" class="sweet hidden"></div>
       <details id="pEdit">
         <summary>Изменить КБЖУ на 100 г</summary>
         <div class="grid4">
@@ -316,6 +334,10 @@
       <p id="goalCheck" class="muted small"></p>
 
       <h3>Распознавание фото (ИИ)</h3>
+      <label class="field">Сервер приложения (уже встроенный ИИ, бесплатно)
+        <input id="sAiUrl" autocomplete="off" placeholder="https://kalorii-ai.xxx.workers.dev">
+      </label>
+      <p class="muted small">Если адрес вписан — фото распознаёт бесплатный сервер, ключи не нужны. Остальное (модель и ключ ниже) — необязательно, для тех, кто хочет свою модель.</p>
       <label class="field">Модель
         <!-- shortcut: бесплатные модели OpenRouter периодически меняются; если модель пропала — замени id по openrouter.ai/models?q=free -->
         <select id="sModel">
@@ -347,6 +369,51 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
+
+  <!-- Кофеин: настройки -->
+  <div id="cafSetSheet" class="overlay hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>Настройки кофеина</h2>
+        <button class="icon-btn" data-close aria-label="Закрыть">✕</button>
+      </div>
+      <div class="row">
+        <label class="field grow">Возраст
+          <input id="cafAge" type="number" inputmode="numeric" placeholder="28">
+        </label>
+        <label class="field grow">Норма в день, мг
+          <input id="cafNorm" type="number" inputmode="numeric" value="400">
+        </label>
+      </div>
+      <p id="cafHint" class="muted small"></p>
+      <button id="cafSetSave" class="btn wide">Сохранить</button>
+      <h3>Выпито сегодня <small id="cafTodaySum" class="muted"></small></h3>
+      <ul id="cafToday" class="my-list"></ul>
+    </div>
+  </div>
+
+  <!-- Кофеин -->
+  <div id="cafSheet" class="overlay hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>Кофеин</h2>
+        <button class="icon-btn" data-close aria-label="Закрыть">✕</button>
+      </div>
+      <div class="chips" id="cafChips"></div>
+      <label class="field">Что пил
+        <input id="cafName" placeholder="Эспрессо, энергетик, чай…">
+      </label>
+      <label class="field">Объём, мл
+        <input id="cafMl" type="number" inputmode="numeric" value="200">
+      </label>
+      <div class="result" id="cafCalc"></div>
+      <label class="btn secondary wide">📷 Сфоткать банку — узнать кофеин
+        <input type="file" accept="image/*" capture="environment" id="cafPhoto" hidden>
+      </label>
+      <button id="cafAi" class="btn secondary wide">🤖 Спросить ИИ, сколько кофеина</button>
+      <button id="cafSave" class="btn wide">Добавить</button>
+    </div>
+  </div>
 
   <!-- Протеин -->
   <div id="protSheet" class="overlay hidden">

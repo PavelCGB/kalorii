@@ -1,0 +1,14 @@
+name = "kalorii-ai"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+# Бесплатный Workers AI: 10 000 нейронов в день, ключи не нужны
+[ai]
+binding = "AI"
+
+# Счётчик «20 фото в день на устройство»
+# 1) npx wrangler kv namespace create KV
+# 2) вставь сюда id из ответа
+[[kv_namespaces]]
+binding = "KV"
+id = "ВСТАВЬ_ID_ПОСЛЕ_СОЗДАНИЯ"

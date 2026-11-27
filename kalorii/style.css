@@ -143,6 +143,19 @@ main { padding: 10px 16px 120px; max-width: 640px; margin: 0 auto; }
   border-radius: 12px; padding: 8px 10px; margin: 6px 0; cursor: pointer; font-size: 13px; font-weight: 700; color: inherit; }
 .pr-cand .muted { font-weight: 700; }
 
+/* состав при сканировании: сахарозаменители */
+.sweet { margin: 10px 0 2px; padding: 10px 12px; border-radius: 14px; background: var(--bg); font-size: 13.5px; line-height: 1.4; }
+.sweet b { font-size: 13.5px; }
+.sweet ul { margin: 6px 0 0; padding-left: 18px; }
+.sweet li { margin: 2px 0; }
+.sweet li.warn { color: var(--danger); }
+
+/* кофеин: карточка с полоской дневной нормы */
+.caffeine { padding: 12px 12px 14px 16px; }
+.caf-row { display: flex; align-items: center; gap: 6px; }
+.caf-bar { margin-top: 10px; }
+.caf-bar > i { background: var(--accent); }
+
 /* вода */
 .water { display: flex; gap: 8px; margin-top: 12px; }
 .water button {

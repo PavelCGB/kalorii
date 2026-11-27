@@ -1,4 +1,6 @@
 import { FOODS } from './foods.js';
+import { parseLabel } from './label.js';
+import { sweetInfo } from './sweet.js';
 
 // ---------- утилиты ----------
 const $ = (s) => document.querySelector(s);
@@ -18,14 +20,14 @@ const sum = (entries) => entries.reduce((a, e) => {
   a.kcal += t.kcal; a.p += t.p; a.f += t.f; a.c += t.c; return a;
 }, { kcal: 0, p: 0, f: 0, c: 0 });
 
-const APP_VERSION = '2.9';
+const APP_VERSION = '2.10';
 const REPO = 'PavelCGB/kalorii'; // откуда брать обновления APK (GitHub Releases)
 // ключ snack остаётся прежним, чтобы старые записи дневника не потерялись
 const MEALS = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин', snack: 'Перекус' };
 const MEAL_ICON = { breakfast: '🍳', lunch: '🍲', dinner: '🥗', snack: '🍎' };
 const MACRO3 = [['p', 'Белки', 'var(--p)'], ['f', 'Жиры', 'var(--f)'], ['c', 'Углеводы', 'var(--c)']];
 const WATER_GLASSES = 8;
-const DEFAULTS = { goals: { kcal: 2000, p: 100, f: 70, c: 250 }, apiKey: '', model: 'google/gemma-4-31b-it:free', protein: null };
+const DEFAULTS = { goals: { kcal: 2000, p: 100, f: 70, c: 250 }, apiKey: '', model: 'google/gemma-4-31b-it:free', protein: null, caffeineNorm: 400, age: null };
 
 // ---------- хранилище ----------
 function load(key, def) {
@@ -104,6 +106,7 @@ function renderDay() {
     `<button class="${i < w ? 'on' : ''}" data-glass="${i}" aria-label="Стакан ${i + 1}"></button>`).join('');
 
   renderProtein();
+  renderCaffeine();
 
   // приёмы пищи: строка-сводка, по нажатию раскрывается список блюд
   $('#meals').innerHTML = Object.entries(MEALS).map(([m, label]) => {
@@ -314,38 +317,226 @@ $('#prPhoto').addEventListener('change', async (e) => {
   const file = e.target.files?.[0]; e.target.value = '';
   if (!file) return;
   $('#prSteps').innerHTML = '';
-  if (!settings.apiKey) { prStep('<span class="err">Для фото нужен ключ API в настройках ⚙️</span>'); return; }
-  prStep('🤖 Смотрю на банку…');
+  const hasAI = !!(settings.apiKey || proxyUrl());
   let item = null, note = '';
-  try {
-    const res = await askAI([
-      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: await fileToJpegBase64(file, 1600) } },
-      { type: 'text', text: 'Это упаковка протеина (банка или рекламная картинка). Прочитай название и бренд, вес банки и число порций. '
-        + 'КБЖУ верни НА 100 Г. Если на упаковке указано на порцию (например «117 ккал и 24 г белка в порции», «900 г, 30 порций») — '
-        + 'сначала посчитай вес одной порции в граммах, потом пересчитай значения на 100 г. '
-        + 'В поле piece укажи вес одной порции (мерной ложки) в граммах. Верни ровно один item. '
-        + 'Если пищевой ценности не видно — всё равно верни один item только с названием (kcal = 0), а в note напиши, чего не хватает.' },
-    ]);
-    item = res.items?.[0] || null;
-    note = String(res.note || '');
-    if (item?.name) $('#prName').value = String(item.name).trim();
-    if (!item || num(item.kcal) <= 0) {
-      prStep(`🤔 КБЖУ на картинке не разобрать${note ? ` (вижу: ${esc(note)})` : ''} — поищу в интернете`);
+  if (hasAI) {
+    prStep('🤖 Смотрю на банку…');
+    try {
+      const res = await askAI([
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: await fileToJpegBase64(file, 1600) } },
+        { type: 'text', text: 'Это упаковка протеина (банка или рекламная картинка). Прочитай название и бренд, вес банки и число порций. '
+          + 'КБЖУ верни НА 100 Г. Если на упаковке указано на порцию (например «117 ккал и 24 г белка в порции», «900 г, 30 порций») — '
+          + 'сначала посчитай вес одной порции в граммах, потом пересчитай значения на 100 г. '
+          + 'В поле piece укажи вес одной порции (мерной ложки) в граммах. Верни ровно один item. '
+          + 'Если пищевой ценности не видно — всё равно верни один item только с названием (kcal = 0), а в note напиши, чего не хватает.' },
+      ]);
+      item = res.items?.[0] || null;
+      note = String(res.note || '');
+      if (item?.name) $('#prName').value = String(item.name).trim();
+      if (item && num(item.kcal) > 0) {
+        $('#prK').value = r1(num(item.kcal)); $('#prP').value = r1(num(item.protein));
+        $('#prF').value = r1(num(item.fat)); $('#prC').value = r1(num(item.carbs));
+        if (num(item.piece) > 0) $('#prScoop').value = r1(num(item.piece));
+        protPreview();
+        prStep(`<span class="ok">✅ Разобрал по фото: ${r1(num(item.kcal))} ккал на 100 г${num(item.piece) ? `, скуп ${r1(num(item.piece))} г` : ''} — сверь с банкой</span>`);
+        return;
+      }
+      prStep(`🤔 КБЖУ через ИИ не разобрать${note ? ` (вижу: ${esc(note)})` : ''} — читаю текст на телефоне`);
+    } catch (err) {
+      prStep(`<span class="err">${esc(aiErr(err) || 'ИИ не ответил')}</span> — читаю текст на телефоне`);
     }
-  } catch (err) {
-    prStep(`<span class="err">${esc(aiErr(err) || 'Не получилось разобрать фото')}</span> — попробую поискать в интернете`);
+    if (!$('#prName').value.trim() && note) $('#prName').value = note.split(',')[0].trim();
   }
-  if (item && num(item.kcal) > 0) {
-    $('#prK').value = r1(num(item.kcal)); $('#prP').value = r1(num(item.protein));
-    $('#prF').value = r1(num(item.fat)); $('#prC').value = r1(num(item.carbs));
-    if (num(item.piece) > 0) $('#prScoop').value = r1(num(item.piece));
-    protPreview();
-    prStep(`<span class="ok">✅ Разобрал по фото: ${r1(num(item.kcal))} ккал на 100 г${num(item.piece) ? `, скуп ${r1(num(item.piece))} г` : ''} — сверь с банкой</span>`);
+  // без ИИ (или если он не справился) — распознаём текст на телефоне, бесплатно и офлайн
+  prStep('📷 Читаю текст на фото…');
+  const text = await ocrText(file);
+  if (text) {
+    const lab = parseLabel(text);
+    if (!$('#prName').value.trim() && lab.name) $('#prName').value = lab.name;
+    if (lab.scoop) $('#prScoop').value = r1(lab.scoop);
+    if (lab.kcal) {
+      $('#prK').value = r1(lab.kcal);
+      if (lab.p != null) $('#prP').value = r1(lab.p);
+      if (lab.f != null) $('#prF').value = r1(lab.f);
+      if (lab.c != null) $('#prC').value = r1(lab.c);
+      protPreview();
+      prStep(`<span class="ok">✅ С этикетки: ${r1(lab.kcal)} ккал на 100 г${lab.scoop ? `, скуп ${r1(lab.scoop)} г` : ''}${lab.perPortion ? ' (пересчитал с порции)' : ''} — сверь с банкой</span>`);
+      return;
+    }
+    prStep(`🔍 Вижу надписи: ${esc(text.replace(/\s+/g, ' ').slice(0, 140))}`);
+  } else {
+    prStep('<span class="err">Текст на фото не распознан</span> — сфоткай таблицу КБЖУ крупнее');
+  }
+  await searchProteinOnline($('#prName').value);
+});
+
+// ---------- кофеин: сколько выпил и дневная норма ----------
+const CAF = [ // [название, обычный объём мл, мг кофеина на 100 мл]
+  ['Эспрессо', 30, 200], ['Американо / фильтр', 200, 65], ['Капучино', 200, 40],
+  ['Чай чёрный', 200, 25], ['Чай зелёный', 200, 20], ['Кола', 330, 10],
+  ['Энергетик', 450, 32], ['Матча', 200, 70], ['Предтреник', 200, 100],
+];
+let caffeine = load('kc_caffeine', {});   // { 'YYYY-MM-DD': [{name, ml, mg}] }
+const saveCaffeine = () => localStorage.setItem('kc_caffeine', JSON.stringify(caffeine));
+const cafTotal = (k) => (caffeine[k] || []).reduce((a, e) => a + num(e.mg), 0);
+let cafPer100 = null;
+
+function renderCaffeine() {
+  const norm = num(settings.caffeineNorm) || 400;
+  const total = cafTotal(curDate);
+  $('#cafSub').textContent = `${r0(total)} из ${r0(norm)} мг`;
+  const bar = $('#cafBar');
+  bar.style.width = Math.min(100, (total / norm) * 100) + '%';
+  bar.classList.toggle('over', total > norm);
+}
+
+// норма кофеина: детям и подросткам меньше, взрослым — по весу, но не больше 400 мг
+function cafNormFor(age, kg) {
+  if (age && age < 18) {
+    if (age >= 13) return 100;
+    if (age >= 10) return 85;
+    if (age >= 7) return 62;
+    return 45;
+  }
+  return kg ? Math.min(400, Math.round(3 * kg)) : 400;
+}
+
+function cafSuggest() {
+  const age = num($('#cafAge').value) || null;
+  const kg = weightAt(curDate)?.kg || null;
+  const norm = cafNormFor(age, kg);
+  $('#cafNorm').value = norm;
+  $('#cafHint').textContent =
+    (age && age < 18 ? `До 18 лет безопасно примерно ${norm} мг в день. ` : '') +
+    (kg && (!age || age >= 18) ? `Вес ${fmtKg(kg)} кг → до ${norm} мг (3 мг/кг). ` : '') +
+    (age && age >= 18 && !kg ? 'Внеси вес в «Статистике» — посчитаю норму по весу. ' : '') +
+    'Это ориентир, а не медсовет.';
+}
+
+$('#cafChips').innerHTML = CAF.map(([n], i) => `<button type="button" data-caf="${i}">${esc(n)}</button>`).join('');
+
+function cafPreview() {
+  const ml = num($('#cafMl').value);
+  const mg = cafPer100 != null && ml > 0 ? Math.round((cafPer100 * ml) / 100) : null;
+  $('#cafCalc').innerHTML = mg != null
+    ? `<div class="big bump">${r0(mg)} мг</div><div class="muted">${r0(cafPer100)} мг на 100 мл · ${r0(ml)} мл</div>`
+    : '<span class="muted">Выбери напиток, впиши свой или спроси ИИ</span>';
+}
+
+$('#cafAdd').addEventListener('click', () => {
+  $('#cafName').value = '';
+  $('#cafMl').value = 200;
+  cafPer100 = null;
+  cafPreview();
+  show('#cafSheet');
+});
+$('#cafAge').addEventListener('input', cafSuggest);
+
+function renderCafToday() {
+  const list = caffeine[curDate] || [];
+  const norm = num(settings.caffeineNorm) || 400;
+  const total = list.reduce((a, e) => a + num(e.mg), 0);
+  $('#cafTodaySum').textContent = `${r0(total)} из ${r0(norm)} мг`;
+  $('#cafToday').innerHTML = list.length
+    ? list.map((e, i) => `<li><span>${esc(e.name)} <span class="muted">· ${r0(e.ml)} мл · ${r0(e.mg)} мг</span></span>
+        <button class="icon-btn" data-caf-del="${i}" aria-label="Удалить">🗑</button></li>`).join('')
+    : '<li class="muted">Пока пусто.</li>';
+}
+
+$('#cafEdit').addEventListener('click', () => {
+  $('#cafAge').value = settings.age || '';
+  $('#cafNorm').value = num(settings.caffeineNorm) || 400;
+  cafSuggest();
+  renderCafToday();
+  show('#cafSetSheet');
+});
+$('#cafSetSave').addEventListener('click', () => {
+  settings.age = num($('#cafAge').value) || null;
+  settings.caffeineNorm = num($('#cafNorm').value) || 400;
+  saveSettings(); hide('#cafSetSheet'); renderCaffeine();
+  toast(`Норма: ${r0(settings.caffeineNorm)} мг в день`);
+});
+$('#cafToday').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-caf-del]'); if (!b) return;
+  const list = caffeine[curDate] || [];
+  list.splice(Number(b.dataset.cafDel), 1);
+  if (!list.length) delete caffeine[curDate];
+  saveCaffeine(); renderCafToday(); renderCaffeine();
+});
+$('#cafChips').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-caf]'); if (!b) return;
+  const [name, ml, per] = CAF[Number(b.dataset.caf)];
+  $('#cafName').value = name; $('#cafMl').value = ml;
+  cafPer100 = per;
+  cafPreview();
+});
+['#cafMl', '#cafName'].forEach((s) => $(s).addEventListener('input', cafPreview));
+
+// фото банки: ИИ, а если его нет — распознаём текст на телефоне и ищем «кофеин … мг»
+async function cafFromPhoto(file) {
+  $('#cafCalc').innerHTML = '<span class="muted">📷 Смотрю на банку…</span>';
+  if (settings.apiKey || proxyUrl()) {
+    try {
+      const res = await askAI([
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: await fileToJpegBase64(file, 1600) } },
+        { type: 'text', text: 'Это напиток (банка, бутылка). Прочитай название и сколько в нём кофеина. '
+          + 'Ответь JSON: {"name":"название","caffeine":мг кофеина на 100 мл,"volume":объём мл}. Если на упаковке указано на всю банку — пересчитай на 100 мл.' },
+      ]);
+      const v = num(res.caffeine);
+      if (v > 0) {
+        if (res.name) $('#cafName').value = String(res.name).slice(0, 60);
+        if (num(res.volume) > 0) $('#cafMl').value = r0(num(res.volume));
+        cafPer100 = v;
+        cafPreview();
+        toast(`ИИ: ≈${r0(v)} мг на 100 мл`);
+        return;
+      }
+    } catch { /* упадём в локальное распознавание */ }
+  }
+  const text = await ocrText(file);
+  const lab = parseLabel(text);
+  if (lab.caffeine) {
+    cafPer100 = lab.caffeine;
+    if (lab.name && !$('#cafName').value.trim()) $('#cafName').value = lab.name;
+    cafPreview();
+    toast(`С этикетки: ${r0(lab.caffeine)} мг на 100 мл`);
     return;
   }
-  // имя не пришло — пробуем вытащить из примечания ИИ («Вэй Про, Geneticlab…»)
-  if (!$('#prName').value.trim() && note) $('#prName').value = note.split(',')[0].trim();
-  await searchProteinOnline($('#prName').value);
+  cafPreview();
+  toast(text ? 'Кофеин на фото не написан — выбери напиток из списка' : 'Текст на фото не распознан');
+}
+
+$('#cafPhoto').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0]; e.target.value = '';
+  if (file) await cafFromPhoto(file);
+});
+
+$('#cafAi').addEventListener('click', async () => {
+  const name = $('#cafName').value.trim();
+  if (!name) return toast('Сначала впиши, что пил');
+  if (!settings.apiKey && !proxyUrl()) return toast('Для ИИ нужен ключ или сервер в настройках ⚙️');
+  toast('🤖 Спрашиваю про кофеин…');
+  try {
+    const res = await askAI([{ type: 'text', text: `Сколько миллиграммов кофеина в 100 мл напитка «${name}»? Ответь одним JSON: {"caffeine": число}` }]);
+    const v = num(res.caffeine) || num(res.items?.[0]?.kcal) || num(res.items?.[0]?.caffeine);
+    if (!v) return toast('ИИ не назвал цифру — попробуй переформулировать');
+    cafPer100 = v;
+    cafPreview();
+    toast(`ИИ: ≈${r0(v)} мг кофеина на 100 мл`);
+  } catch (e) {
+    toast(aiErr(e) || 'ИИ не ответил');
+  }
+});
+
+$('#cafSave').addEventListener('click', () => {
+  const ml = num($('#cafMl').value);
+  const mg = cafPer100 != null && ml > 0 ? Math.round((cafPer100 * ml) / 100) : null;
+  if (!mg) return toast('Не знаю, сколько там кофеина — выбери напиток или спроси ИИ');
+  saveSettings();
+  (caffeine[curDate] ||= []).push({ name: $('#cafName').value.trim() || 'Кофеин', ml, mg });
+  saveCaffeine();
+  hide('#cafSheet'); renderCaffeine();
+  toast(`+${mg} мг · всего ${r0(cafTotal(curDate))} из ${r0(settings.caffeineNorm)} мг`);
 });
 
 // ---------- нижнее меню ----------
@@ -487,14 +678,36 @@ function offToProduct(p) {
   return {
     name, brand: p.brands || '', barcode: p.code,
     per100: { kcal: num(kcal), p: num(n.proteins_100g), f: num(n.fat_100g), c: num(n.carbohydrates_100g) },
+    additives: p.additives_tags || [],
+    ingredients: (p.ingredients_text_ru || p.ingredients_text || '').trim(),
     source: 'off',
   };
+}
+
+function renderSweet(product) {
+  const box = $('#pSweet');
+  const info = sweetInfo(product || {});
+  const risk = info.found.length ? Math.max(...info.found.map((s) => s.risk)) : 0;
+  const items = info.found.length
+    ? info.found.map((s) => `<li class="${s.risk >= 2 ? 'warn' : ''}"><b>${esc(s.name)}</b> — ${esc(s.note)}</li>`).join('')
+    : info.inText.map((n) => `<li>${esc(n)}</li>`).join('');
+  if (!items) {
+    if (info.hasSugar) {
+      box.className = 'sweet';
+      box.innerHTML = '<b>Сахарозаменителей нет</b><div class="muted small">в составе обычный сахар или сироп — это калории</div>';
+      return;
+    }
+    box.className = 'sweet hidden';
+    return;
+  }
+  box.className = 'sweet';
+  box.innerHTML = `<b>${risk >= 2 ? '⚠️ Сахарозаменители: не каждый день' : '✅ Сахарозаменители: мягкие'}</b><ul>${items}</ul>`;
 }
 
 async function searchOFF(q, seq) {
   offCtrl = new AbortController();
   const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_simple=1&action=process&json=1&page_size=25' +
-    '&fields=code,product_name,product_name_ru,brands,nutriments&search_terms=' + encodeURIComponent(q);
+    '&fields=code,product_name,product_name_ru,brands,nutriments,additives_tags,ingredients_text,ingredients_text_ru&search_terms=' + encodeURIComponent(q);
   try {
     const r = await fetch(url, { signal: offCtrl.signal });
     const j = await r.json();
@@ -630,7 +843,7 @@ async function lookupBarcode(raw) {
   setScanStatus(`Код ${code}: ищу в базе…`);
   let j;
   try {
-    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=code,product_name,product_name_ru,brands,nutriments`);
+    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=code,product_name,product_name_ru,brands,nutriments,additives_tags,ingredients_text,ingredients_text_ru`);
     j = await r.json();
   } catch {
     setScanStatus('Нет связи с Open Food Facts. Проверь интернет.');
@@ -683,7 +896,40 @@ const AI_SYSTEM = `Ты — нутрициолог в приложении дл�
 - Учитывай типичные рецепты и продукты российских магазинов. Если еды не видно — items пустой, причина в note.`;
 
 let sdkPromise = null;
+
+// ---------- бесплатный сервер распознавания (Cloudflare Worker, см. cloudflare/) ----------
+// Адрес можно вписать сюда или в настройках приложения. Ключи в приложении не нужны.
+const AI_PROXY_DEFAULT = '';
+const proxyUrl = () => (settings.aiUrl || AI_PROXY_DEFAULT).trim();
+const deviceId = () => {
+  let id = localStorage.getItem('kc_device');
+  if (!id) { id = uid() + uid(); localStorage.setItem('kc_device', id); }
+  return id;
+};
+async function askProxy(content, system) {
+  const img = content.find((b) => b.type === 'image');
+  const text = content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+  const r = await fetch(proxyUrl(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: deviceId(),
+      prompt: text,
+      system,
+      ...(img ? { image: img.source.data, mediaType: img.source.media_type } : {}),
+    }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || 'HTTP ' + r.status), { status: r.status, proxyMsg: j.error });
+  return j;
+}
+
 async function askAI(content, system = AI_SYSTEM) {
+  const hasImage = Array.isArray(content) && content.some((b) => b.type === 'image');
+  if (proxyUrl() && (hasImage || !settings.apiKey)) {
+    try { return await askProxy(content, system); }
+    catch (e) { if (!settings.apiKey) throw e; } // свой ключ есть — пробуем через него
+  }
   if (!settings.apiKey) throw new Error('NO_KEY');
   if (settings.model.includes('/')) return askOpenAICompat('https://openrouter.ai/api/v1/chat/completions', content, system);
   if (settings.model.startsWith('kimi')) return askOpenAICompat('https://api.moonshot.ai/v1/chat/completions', content, system);
@@ -742,6 +988,7 @@ async function askOpenAICompat(url, content, system) {
 
 function aiErr(e) {
   if (e.message === 'NO_KEY') return null;
+  if (e.proxyMsg) return e.proxyMsg;
   if (e.status === 401) return 'Ключ API неверный — проверь его в настройках.';
   if (e.status === 429 && /balance|quota|insufficient/i.test(e.message)) return 'На счёте закончились деньги — пополни баланс.';
   if (e.status === 429) return `Бесплатные модели сейчас заняты или кончился дневной лимит — попробуй через пару минут. (${e.message})`;
@@ -757,7 +1004,7 @@ function aiErr(e) {
   return 'Ошибка: ' + msg;
 }
 
-const noKeyHtml = '<p class="pad">Для работы ИИ нужен ключ API (бесплатный — на openrouter.ai). <button class="link" data-open-settings>Открыть настройки</button></p>';
+const noKeyHtml = '<p class="pad">Для фото нужен ключ API (бесплатный — на openrouter.ai) или адрес своего сервера ИИ в настройках. <button class="link" data-open-settings>Открыть настройки</button></p>';
 
 function renderAiResults(box, res) {
   const items = (res.items || []).map((i) => ({
@@ -775,7 +1022,7 @@ function renderAiResults(box, res) {
 async function askAiText(q) {
   const box = $('#aiBlock');
   if (!q || !box) return;
-  if (!settings.apiKey) { box.innerHTML = noKeyHtml; return; }
+  if (!settings.apiKey && !proxyUrl()) { box.innerHTML = noKeyHtml; return; }
   box.innerHTML = '<p class="muted pad">🤖 Спрашиваю ИИ…</p>';
   try {
     const res = await askAI([{ type: 'text', text: `Продукт или блюдо: «${q}». Дай КБЖУ на 100 г. Если вариантов несколько (например, сырой и варёный) — дай 2–3 самых вероятных.` }]);
@@ -794,6 +1041,16 @@ async function fileToJpegBase64(file, max = 1024) {
   return c.toDataURL('image/jpeg', 0.85).split(',')[1];
 }
 
+// распознавание текста на телефоне (ML Kit) — работает без ключей и интернета
+async function ocrText(file) {
+  const P = native();
+  if (!P?.TextReader) return '';
+  try {
+    const r = await P.TextReader.read({ image: await fileToJpegBase64(file, 1600) });
+    return String(r.text || '');
+  } catch { return ''; }
+}
+
 async function handlePhoto(e) {
   const file = e.target.files?.[0];
   e.target.value = '';
@@ -801,7 +1058,25 @@ async function handlePhoto(e) {
   const prev = $('#photoPreview');
   prev.src = URL.createObjectURL(file); prev.classList.remove('hidden');
   const box = $('#photoResults');
-  if (!settings.apiKey) { box.innerHTML = noKeyHtml; return; }
+  // ИИ не настроен — читаем текст на телефоне и ищем продукт в открытой базе
+  if (!settings.apiKey && !proxyUrl()) {
+    box.innerHTML = '<p class="muted pad">📷 Читаю надпись на фото…</p>';
+    const text = await ocrText(file);
+    const q = (parseLabel(text).name || text.split('\n')[0] || '').trim();
+    if (!q) {
+      box.innerHTML = '<p class="muted pad">На фото не разобрал текст. Сфоткай таблицу КБЖУ крупнее, введи вручную или настрой ИИ в ⚙️.</p>';
+      return;
+    }
+    box.innerHTML = `<p class="muted pad">Распознал: «${esc(q)}». Ищу в Open Food Facts…</p>`;
+    try {
+      const found = await offFind(q);
+      box.innerHTML = `<p class="muted pad">Распознал: «${esc(q)}»</p>` +
+        (found.length ? section('Open Food Facts — нажми, чтобы добавить', found) : '<p class="muted pad">В Open Food Facts не нашлось — введи вручную или настрой ИИ в ⚙️.</p>');
+    } catch {
+      box.innerHTML = '<p class="muted pad">Нет связи с Open Food Facts — проверь интернет.</p>';
+    }
+    return;
+  }
   box.innerHTML = '<p class="muted pad">🤖 Распознаю еду… обычно 5–20 секунд</p>';
   try {
     const b64 = await fileToJpegBase64(file);
@@ -823,7 +1098,7 @@ function setHint(text) { $('#mHint').textContent = text; $('#mHint').classList.t
 $('#labelPhoto').addEventListener('change', async (e) => {
   const file = e.target.files?.[0]; e.target.value = '';
   if (!file) return;
-  if (!settings.apiKey) return setHint('Для чтения этикетки нужен ключ API в настройках ⚙️.');
+  if (!settings.apiKey && !proxyUrl()) return setHint('Для чтения этикетки нужен ключ API или сервер ИИ в настройках ⚙️.');
   setHint('🤖 Читаю этикетку…');
   try {
     const res = await askAI([
@@ -892,6 +1167,7 @@ function openPortion(product, entry = null) {
   $('#pDelete').classList.toggle('hidden', !entry);
   $('#pEdit').open = false;
   $('#pNote').textContent = SOURCE_NOTE[product.source] || '';
+  renderSweet(product);
   updatePortion();
   show('#portion');
   setTimeout(() => $('#pGrams').select(), 50);
@@ -1217,6 +1493,7 @@ function openSettings() {
   $('#sK').value = g.kcal; $('#sP').value = g.p; $('#sF').value = g.f; $('#sC').value = g.c;
   $('#sKey').value = settings.apiKey;
   $('#sModel').value = settings.model;
+  $('#sAiUrl').value = settings.aiUrl || AI_PROXY_DEFAULT;
   goalCheck(); renderMyFoods();
   show('#settings');
 }
@@ -1225,6 +1502,7 @@ $('#saveSettings').addEventListener('click', () => {
   settings.goals = { kcal: num($('#sK').value), p: num($('#sP').value), f: num($('#sF').value), c: num($('#sC').value) };
   settings.apiKey = $('#sKey').value.trim();
   settings.model = $('#sModel').value;
+  settings.aiUrl = $('#sAiUrl').value.trim();
   saveSettings(); hide('#settings'); renderDay(); toast('Настройки сохранены');
 });
 
@@ -1280,7 +1558,7 @@ async function saveFile(name, text) {
 
 $('#exportBtn').addEventListener('click', async () => {
   // ключ API в файл не кладём
-  const data = { app: 'kalorii', version: 2, appVersion: APP_VERSION, goals: settings.goals, diary, myFoods, water, weight, plan };
+  const data = { app: 'kalorii', version: 2, appVersion: APP_VERSION, goals: settings.goals, diary, myFoods, water, weight, plan, caffeine };
   try { toast(await saveFile(`kalorii-${dkey(new Date())}.json`, JSON.stringify(data, null, 1))); }
   catch (e) { toast('Не удалось сохранить файл: ' + (e.message || e)); }
 });
@@ -1294,9 +1572,10 @@ $('#importFile').addEventListener('change', async (e) => {
   if (!confirm('Заменить текущие данные данными из файла?')) return;
   diary = data.diary || {}; myFoods = data.myFoods || [];
   water = data.water || {}; weight = data.weight || {};
+  caffeine = data.caffeine || {};
   if (data.plan !== undefined) { plan = data.plan; savePlan(); }
   if (data.goals) settings.goals = { ...DEFAULTS.goals, ...data.goals };
-  saveDiary(); saveMy(); saveWater(); saveWeight(); saveSettings();
+  saveDiary(); saveMy(); saveWater(); saveWeight(); saveCaffeine(); saveSettings();
   hide('#settings'); renderDay(); toast('Данные загружены');
 });
 
